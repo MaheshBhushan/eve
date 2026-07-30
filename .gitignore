@@ -4,3 +4,7 @@ eve.db*
 
 __pycache__/
 *.pyc
+
+# Live configs; the .example.json files are the templates.
+config/boards.json
+config/filters.json

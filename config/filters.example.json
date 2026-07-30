@@ -19,7 +19,6 @@
     "filters run before the diff, so tightening one would otherwise mass-close live",
     "postings. Cosmetic edits (key order, whitespace, casing, list order) are ignored."
   ],
-
   "default": {
     "titleAny": [
       "werkstudent",
@@ -96,17 +95,16 @@
       "ilmenau"
     ],
     "locationNone": [],
-    "remote": "include",
-    "maxAgeDays": 30
+    "remote": "include"
   },
-
   "perSource": {
     "arbeitsagentur:*": {
       "maxAgeDays": 14
     },
     "greenhouse:examplecorp": {
-      "locationAny": ["berlin"],
-      "maxAgeDays": 30
+      "locationAny": [
+        "berlin"
+      ]
     }
   }
 }
