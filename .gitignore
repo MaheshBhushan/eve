@@ -1,0 +1,6 @@
+node_modules/
+jobradar.db*
+.env
+
+__pycache__/
+*.pyc

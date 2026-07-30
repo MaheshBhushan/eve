@@ -1,0 +1,21 @@
+{
+  "name": "job-radar",
+  "version": "1.0.0",
+  "description": "Discord bot that tracks company job boards for new postings, closures, reposts and high-fit matches",
+  "type": "module",
+  "scripts": {
+    "test": "node --test src/*.test.ts",
+    "poll": "node src/poller.ts",
+    "bot": "node src/bot.ts",
+    "register": "node src/bot.ts --register",
+    "typecheck": "tsc --noEmit"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "discord.js": "^14.27.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "typescript": "^7.0.2"
+  }
+}
