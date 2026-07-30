@@ -1,0 +1,112 @@
+{
+  "_readme": [
+    "Copy to config/filters.json and point RADAR_FILTERS at it. Unset RADAR_FILTERS,",
+    "or a path that does not exist, means no filtering at all. A file that exists but",
+    "does not parse is a hard error -- silently tracking every posting on every board",
+    "would be far worse than a crash.",
+    "",
+    "Matching is substring-based on a case- and diacritic-folded form, so 'werkstudent'",
+    "catches 'Werkstudent (m/w/d)', 'Werkstudent:in' and 'Werkstudentin', and 'munchen'",
+    "catches 'München' / 'MÜNCHEN'. It does NOT expand 'ue' ('Muenchen' is a separate",
+    "entry below) and it never translates ('Munich' is another separate entry).",
+    "",
+    "Wrap a term in '|' to pin it to word edges: '|intern|' matches the word Intern but",
+    "not 'International' or 'Internal'. '|internship' matches Internship anywhere a word",
+    "starts. Use this for short English stems; German compounds want the loose form.",
+    "",
+    "Changing anything here re-baselines every affected source on the next poll: rows",
+    "are refreshed, nothing is closed, no closure alerts fire. That is deliberate --",
+    "filters run before the diff, so tightening one would otherwise mass-close live",
+    "postings. Cosmetic edits (key order, whitespace, casing, list order) are ignored."
+  ],
+
+  "default": {
+    "titleAny": [
+      "werkstudent",
+      "working student",
+      "studentische aushilfe",
+      "studentischer mitarbeiter",
+      "praktikum",
+      "praktikant",
+      "pflichtpraktikum",
+      "praxissemester",
+      "|intern|",
+      "|interns|",
+      "|internship",
+      "|trainee",
+      "abschlussarbeit",
+      "bachelorand",
+      "masterand",
+      "bachelorarbeit",
+      "masterarbeit",
+      "|thesis"
+    ],
+    "titleNone": [
+      "senior",
+      "lead",
+      "principal",
+      "staff",
+      "manager",
+      "head of",
+      "director",
+      "vp ",
+      "chief"
+    ],
+    "locationAny": [
+      "deutschland",
+      "germany",
+      "berlin",
+      "munchen",
+      "muenchen",
+      "munich",
+      "hamburg",
+      "koln",
+      "koeln",
+      "cologne",
+      "frankfurt",
+      "stuttgart",
+      "dusseldorf",
+      "duesseldorf",
+      "dortmund",
+      "essen",
+      "leipzig",
+      "dresden",
+      "bremen",
+      "hannover",
+      "nurnberg",
+      "nuernberg",
+      "nuremberg",
+      "karlsruhe",
+      "mannheim",
+      "bonn",
+      "munster",
+      "muenster",
+      "aachen",
+      "darmstadt",
+      "heidelberg",
+      "freiburg",
+      "augsburg",
+      "bielefeld",
+      "braunschweig",
+      "kiel",
+      "erlangen",
+      "ingolstadt",
+      "wolfsburg",
+      "jena",
+      "ilmenau"
+    ],
+    "locationNone": [],
+    "remote": "include",
+    "maxAgeDays": 30
+  },
+
+  "perSource": {
+    "arbeitsagentur:*": {
+      "maxAgeDays": 14
+    },
+    "greenhouse:examplecorp": {
+      "locationAny": ["berlin"],
+      "maxAgeDays": 30
+    }
+  }
+}
