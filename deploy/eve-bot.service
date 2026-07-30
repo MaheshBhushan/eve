@@ -1,12 +1,12 @@
 [Unit]
-Description=job-radar Discord bot (drains the events queue)
+Description=eve Discord bot (drains the events queue)
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=%h/job-radar
-EnvironmentFile=%h/job-radar/.env
+WorkingDirectory=%h/eve
+EnvironmentFile=%h/eve/.env
 ExecStart=/usr/bin/node src/bot.ts
 Restart=always
 RestartSec=10

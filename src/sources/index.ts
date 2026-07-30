@@ -56,7 +56,7 @@ export async function getJson(
   const res = await fetch(url, {
     headers: {
       accept: "application/json",
-      "user-agent": "job-radar",
+      "user-agent": "eve",
       ...(etag ? { "if-none-match": etag } : {}),
     },
   });

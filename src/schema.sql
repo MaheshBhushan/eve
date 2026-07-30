@@ -1,4 +1,4 @@
--- job-radar schema. Single Discord channel (configured), so no per-source channel column.
+-- eve schema. Single Discord channel (configured), so no per-source channel column.
 -- Both the poller and the bot open this file; WAL is set at connection time in db.ts.
 --
 -- The shape differs from issue-radar in one structural way: job boards serve a

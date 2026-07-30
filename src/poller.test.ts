@@ -29,7 +29,7 @@ import type { EventType, FetchedPosting, SourceRow } from "./types.ts";
 /* ------------------------------------------------------------- fixtures --- */
 
 function freshDb(t: { after(fn: () => void): void }): DatabaseSync {
-  const dir = mkdtempSync(join(tmpdir(), "job-radar-poll-"));
+  const dir = mkdtempSync(join(tmpdir(), "eve-poll-"));
   const db = openDb(join(dir, "radar.db"));
   t.after(() => {
     db.close();

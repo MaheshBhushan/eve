@@ -39,7 +39,7 @@ function freshDb(t: { after(fn: () => void): void }): {
   db: DatabaseSync;
   sourceId: number;
 } {
-  const dir = mkdtempSync(join(tmpdir(), "job-radar-test-"));
+  const dir = mkdtempSync(join(tmpdir(), "eve-test-"));
   const db = openDb(join(dir, "radar.db"));
   t.after(() => {
     db.close();

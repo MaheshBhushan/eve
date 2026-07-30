@@ -65,7 +65,7 @@ async function getTenant(
 ): Promise<string | null> {
   const res = await fetch(url, {
     redirect: "manual",
-    headers: { "user-agent": "job-radar" },
+    headers: { "user-agent": "eve" },
   });
 
   if (res.status >= 300 && res.status < 400) {

@@ -1,12 +1,12 @@
 [Unit]
-Description=job-radar poller (job boards -> events queue)
+Description=eve poller (job boards -> events queue)
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=oneshot
-WorkingDirectory=%h/job-radar
-EnvironmentFile=%h/job-radar/.env
+WorkingDirectory=%h/eve
+EnvironmentFile=%h/eve/.env
 ExecStart=/usr/bin/node src/poller.ts
 # Fit scoring shells out to the claude CLI once per new posting, so a board that
 # just dumped thirty roles legitimately takes a while -- the default 90s would

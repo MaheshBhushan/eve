@@ -62,7 +62,7 @@ async function main(): Promise<void> {
   // Deliberately not inside the per-board try/catch: a malformed filter file is
   // a configuration error, and failing fast beats seeding everything unfiltered.
   const filters = loadFilters(process.env.RADAR_FILTERS ?? null);
-  const db = openDb(process.env.RADAR_DB ?? join(repo, "jobradar.db"));
+  const db = openDb(process.env.RADAR_DB ?? join(repo, "eve.db"));
 
   console.log(
     `${dryRun ? "[dry-run] " : ""}${boards.length} board${

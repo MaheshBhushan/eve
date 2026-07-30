@@ -267,7 +267,7 @@ export function toPosting(job: BaJob, description: string | null = null): Fetche
 
 async function getBa(url: string): Promise<unknown> {
   const res = await fetch(url, {
-    headers: { accept: "application/json", "user-agent": "job-radar", "X-API-Key": API_KEY },
+    headers: { accept: "application/json", "user-agent": "eve", "X-API-Key": API_KEY },
   });
   if (!res.ok) throw new Error(`${url} -> HTTP ${res.status} ${res.statusText}`);
   return await res.json();

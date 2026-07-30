@@ -74,7 +74,7 @@ function req(name: string): string {
 
 export function loadConfig(): Config {
   return {
-    dbPath: process.env.RADAR_DB ?? "jobradar.db",
+    dbPath: process.env.RADAR_DB ?? "eve.db",
     discordToken: req("DISCORD_TOKEN"),
     discordChannelId: req("DISCORD_CHANNEL_ID"),
     digestThreshold: Number(process.env.RADAR_DIGEST_THRESHOLD ?? 5),

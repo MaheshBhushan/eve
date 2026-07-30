@@ -1,5 +1,5 @@
 {
-  "name": "job-radar",
+  "name": "eve",
   "version": "1.0.0",
   "description": "Discord bot that tracks company job boards for new postings, closures, reposts and high-fit matches",
   "type": "module",

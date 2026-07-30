@@ -1,5 +1,5 @@
 [Unit]
-Description=Run the job-radar poller every 10 minutes
+Description=Run the eve poller every 10 minutes
 
 [Timer]
 OnBootSec=2min

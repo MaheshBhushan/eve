@@ -46,7 +46,7 @@ function posting(over: Partial<FetchedPosting> = {}): FetchedPosting {
 }
 
 function tmpDir(t: { after(fn: () => void): void }): string {
-  const dir = mkdtempSync(join(tmpdir(), "job-radar-filter-"));
+  const dir = mkdtempSync(join(tmpdir(), "eve-filter-"));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   return dir;
 }
@@ -360,7 +360,7 @@ test("the shipped example config loads", () => {
  */
 
 function freshDb(t: { after(fn: () => void): void }): DatabaseSync {
-  const dir = mkdtempSync(join(tmpdir(), "job-radar-filter-db-"));
+  const dir = mkdtempSync(join(tmpdir(), "eve-filter-db-"));
   const db = openDb(join(dir, "radar.db"));
   t.after(() => {
     db.close();

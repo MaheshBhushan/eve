@@ -1,4 +1,4 @@
-<h1 align="center">job-radar</h1>
+<h1 align="center">eve</h1>
 <p align="center">A Discord bot that watches company job boards, so you hear about a posting while applying still matters.</p>
 
 <p align="center">
@@ -39,8 +39,8 @@ Split so a Discord outage cannot lose events — they sit in the queue and drain
 Requires **Node 26+**. It runs the TypeScript directly via native type stripping and uses the built-in `node:sqlite`, so there is no build step and no native dependency to compile.
 
 ```bash
-git clone https://github.com/MaheshBhushan/eve.git job-radar
-cd job-radar
+git clone https://github.com/MaheshBhushan/eve.git eve
+cd eve
 npm install
 cp .env.example .env      # fill in tokens, see Configuration
 npm run register          # publish slash commands (once)
@@ -156,7 +156,7 @@ Seeding applies the same filter the poller does, and records the same hash. That
 | `DISCORD_TOKEN` | — | |
 | `DISCORD_CHANNEL_ID` | — | Single channel for all watched boards |
 | `DISCORD_APP_ID` | derived from token | Only needed if `--register` can't derive it |
-| `RADAR_DB` | `jobradar.db` | Use an absolute path; both processes open it |
+| `RADAR_DB` | `eve.db` | Use an absolute path; both processes open it |
 | `RADAR_PROFILE` | — | Path to job-pipeline's `profile.json`. Unset disables fit scoring and `high_fit` |
 | `RADAR_FIT_MODEL` | `sonnet` | Model run through the `claude` CLI |
 | `RADAR_FIT_THRESHOLD` | `75` | Score at or above this pings you |
@@ -227,7 +227,7 @@ deploy/              systemd units + timer
 mkdir -p ~/.config/systemd/user
 cp deploy/*.service deploy/*.timer ~/.config/systemd/user/
 systemctl --user daemon-reload
-systemctl --user enable --now job-radar-bot.service job-radar-poll.timer
+systemctl --user enable --now eve-bot.service eve-poll.timer
 loginctl enable-linger "$USER"     # or user units die on logout
 ```
 

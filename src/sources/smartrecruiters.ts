@@ -132,7 +132,7 @@ async function fetchPage(slug: string, offset: number): Promise<SrPage> {
  */
 async function assertCompanyExists(slug: string): Promise<void> {
   const res = await fetch(`https://careers.smartrecruiters.com/${slug}/api/groups`, {
-    headers: { "user-agent": "job-radar" },
+    headers: { "user-agent": "eve" },
   });
   if (res.status === 404) {
     throw new Error(
