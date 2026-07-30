@@ -1,0 +1,21 @@
+[Unit]
+Description=job-radar poller (job boards -> events queue)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/job-radar
+EnvironmentFile=%h/job-radar/.env
+ExecStart=/usr/bin/node src/poller.ts
+# Fit scoring shells out to the claude CLI once per new posting, so a board that
+# just dumped thirty roles legitimately takes a while -- the default 90s would
+# kill the cycle partway and leave the rest unscored.
+#
+# This can exceed the timer's 10-minute interval, which is fine: systemd will not
+# run a second instance of a oneshot unit that is still active, so cycles
+# serialise and a firing during a long cycle is simply skipped. The ceiling is
+# LLM latency, not the interval. But the timeout must stay well under an hour so
+# that a genuinely wedged cycle gets killed rather than blocking every subsequent
+# firing indefinitely.
+TimeoutStartSec=900

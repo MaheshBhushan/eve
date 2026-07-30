@@ -1,0 +1,22 @@
+[Unit]
+Description=Run the job-radar poller every 10 minutes
+
+[Timer]
+OnBootSec=2min
+# A 10-minute refresh. Job boards themselves move on a scale of days, so this is
+# not about catching a posting sooner than the board publishes it -- it is about
+# the freshness alert having a tight enough window to still be actionable when it
+# fires.
+#
+# Cost stays bounded because the expensive part is scoring, not polling:
+# Greenhouse and Ashby honour If-None-Match, so an unchanged board costs one 304
+# and does no work at all. Only genuinely new postings reach the LLM, and
+# RADAR_FIT_BUDGET caps how many per cycle regardless of interval -- a tighter
+# interval drains a scoring backlog faster, it does not raise the ceiling.
+OnUnitActiveSec=10min
+# Jitter well under the interval, so cycles cannot bunch up against each other.
+RandomizedDelaySec=90
+Persistent=true
+
+[Install]
+WantedBy=timers.target
