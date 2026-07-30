@@ -1,0 +1,66 @@
+{
+  "_readme": [
+    "Starting set of sources for working-student / internship roles in Germany.",
+    "Copy to config/boards.json, edit, then: node scripts/seed-boards.ts",
+    "",
+    "Every entry here was fetched live and measured. 'total' is what the source",
+    "returned; 'match' is how many survived config/filters.example.json. Those",
+    "numbers are a snapshot from the date below, not a promise -- boards move.",
+    "",
+    "The headline finding: the Bundesagentur searches massively outperform",
+    "company boards for this particular goal. One city search returns more",
+    "student roles than the entire Bosch board, which is 4727 postings deep.",
+    "Company boards are worth keeping for employers you specifically care about,",
+    "not as a way to find volume.",
+    "",
+    "measured: 2026-07-30"
+  ],
+
+  "boards": [
+    { "ref": "arbeitsagentur:werkstudent@münchen+25", "group": "national-search",
+      "note": "465 total, 121 matched - best single source measured" },
+    { "ref": "arbeitsagentur:werkstudent@berlin+25", "group": "national-search",
+      "note": "284 total, 73 matched" },
+    { "ref": "arbeitsagentur:praktikum@münchen+25", "group": "national-search",
+      "note": "440 total, 73 matched" },
+    { "ref": "arbeitsagentur:werkstudent@hamburg+25", "group": "national-search",
+      "note": "296 total, 63 matched" },
+    { "ref": "arbeitsagentur:werkstudent@stuttgart+25", "group": "national-search",
+      "note": "241 total, 29 matched" },
+    { "ref": "arbeitsagentur:praktikum@berlin+25", "group": "national-search",
+      "note": "604 total, 17 matched" },
+
+    { "ref": "smartrecruiters:BoschGroup", "group": "large-employer",
+      "note": "4727 total, 48 matched. Highest absolute yield of any company board, but it is also the most expensive source here: ~48 API requests every cycle. Drop it first if you want the poll cheap." },
+    { "ref": "greenhouse:solarisbank", "group": "company",
+      "note": "32 total, 8 matched - best signal-to-noise ratio of any company board" },
+    { "ref": "greenhouse:celonis", "group": "company", "note": "243 total, 3 matched" },
+    { "ref": "greenhouse:sumup", "group": "company", "note": "375 total, 3 matched" },
+    { "ref": "greenhouse:raisin", "group": "company", "note": "32 total, 2 matched" },
+    { "ref": "lever:finn", "group": "company", "note": "36 total, 2 matched" },
+    { "ref": "greenhouse:n26", "group": "company", "note": "70 total, 1 matched" },
+
+    { "ref": "greenhouse:getyourguide", "group": "company-quiet",
+      "note": "56 total, 0 matched at time of measurement - board is live, just had no student roles open" },
+    { "ref": "greenhouse:contentful", "group": "company-quiet", "note": "27 total, 0 matched" },
+    { "ref": "smartrecruiters:deliveryhero", "group": "company-quiet", "note": "1081 total, 0 matched" },
+    { "ref": "ashby:black-forest-labs", "group": "company-quiet", "note": "13 total, 0 matched" },
+    { "ref": "ashby:langfuse", "group": "company-quiet", "note": "8 total, 0 matched" },
+    { "ref": "personio:pitch", "group": "company-quiet", "note": "10 total, 0 matched" },
+    { "ref": "personio:wandelbots", "group": "company-quiet", "note": "7 total, 0 matched" },
+    { "ref": "personio:everphone", "group": "company-quiet", "note": "4 total, 0 matched" }
+  ],
+
+  "_checked_and_unavailable": [
+    "These were tried and do NOT work, recorded so nobody re-checks them:",
+    "smartrecruiters: SAP, Siemens, Zalando, HelloFresh, TeamViewer, Infineon, N26, Personio, Celonis, Trivago, FlixBus, Bosch (the working slug is 'BoschGroup')",
+    "greenhouse: trade-republic, personio",
+    "lever: blinkist, adjust, omio, sennder, cargoone",
+    "ashby: helsing, parloa",
+    "personio: staffbase, sennder, forto, choco, tier, isar-aerospace, enpal, gorillas, 1komma5 (no public search.json tenant)",
+    "",
+    "A slug that answers with an empty or error body is not always a 404 -- Lever",
+    "returns HTTP 200 with {ok:false}, which is why /watch fetches before it",
+    "registers anything."
+  ]
+}
