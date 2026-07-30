@@ -39,7 +39,7 @@ Split so a Discord outage cannot lose events — they sit in the queue and drain
 Requires **Node 26+**. It runs the TypeScript directly via native type stripping and uses the built-in `node:sqlite`, so there is no build step and no native dependency to compile.
 
 ```bash
-git clone https://github.com/MaheshBhushan/job-radar.git job-radar
+git clone https://github.com/MaheshBhushan/eve.git job-radar
 cd job-radar
 npm install
 cp .env.example .env      # fill in tokens, see Configuration
