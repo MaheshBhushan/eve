@@ -45,7 +45,7 @@ One page, newest discovery first. Each card shows title, company, location, the 
 
 `first_seen` is the field that matters here. `posted_at` is whatever the board claims, and many boards only give a relative "3 days ago" or nothing at all; `first_seen` is the moment eve actually discovered the posting, which is what decides whether you were early.
 
-The dashboard binds to loopback by default (`RADAR_DASHBOARD_BIND`, `RADAR_DASHBOARD_PORT`) and has no authentication. To reach it from another machine, expose it over your tailnet (`tailscale serve`) rather than binding to a public interface.
+The dashboard binds to loopback by default (`RADAR_DASHBOARD_BIND`, `RADAR_DASHBOARD_PORT`) and has no authentication. To reach it from another machine, put a Cloudflare Tunnel in front of it (see Deployment) or expose it over your tailnet (`tailscale serve`). Never bind it to a public interface directly.
 
 ## Quickstart
 
