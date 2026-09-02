@@ -51,7 +51,7 @@ test("stepstone.parse builds a canonical ident and label from the prefix form", 
   const ref = stepstone.parse("stepstone:werkstudent machine learning@Nürnberg");
   assert.deepEqual(ref, {
     kind: "stepstone",
-    ident: "stepstone:werkstudent machine learning@nürnberg",
+    ident: "werkstudent machine learning@nürnberg",
     label: "StepStone: werkstudent machine learning, nürnberg",
   });
 });
@@ -60,7 +60,7 @@ test("stepstone.parse builds an ident from a /jobs/<q>/in-<loc> URL", () => {
   const ref = stepstone.parse("https://www.stepstone.de/jobs/werkstudent-machine-learning/in-nuernberg");
   assert.deepEqual(ref, {
     kind: "stepstone",
-    ident: "stepstone:werkstudent machine learning@nuernberg",
+    ident: "werkstudent machine learning@nuernberg",
     label: "StepStone: werkstudent machine learning, nuernberg",
   });
 });

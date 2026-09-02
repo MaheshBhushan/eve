@@ -60,7 +60,7 @@ test("indeed.parse builds a canonical ident and label", () => {
   const ref = indeed.parse("indeed:werkstudent machine learning@Nürnberg");
   assert.ok(ref);
   assert.equal(ref!.kind, "indeed");
-  assert.equal(ref!.ident, "indeed:werkstudent machine learning@nürnberg");
+  assert.equal(ref!.ident, "werkstudent machine learning@nürnberg");
   assert.equal(ref!.label, "Indeed: werkstudent machine learning, nürnberg");
 });
 

@@ -57,7 +57,7 @@ test("linkedin.parse builds a canonical ident and label", () => {
   const ref = linkedin.parse("linkedin:werkstudent machine learning@Nürnberg");
   assert.ok(ref);
   assert.equal(ref!.kind, "linkedin");
-  assert.equal(ref!.ident, "linkedin:werkstudent machine learning@nürnberg");
+  assert.equal(ref!.ident, "werkstudent machine learning@nürnberg");
   assert.equal(ref!.label, "LinkedIn: werkstudent machine learning, nürnberg");
 });
 

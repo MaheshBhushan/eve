@@ -22,25 +22,19 @@ import type { Adapter, FetchResult, ParsedRef } from "./index.ts";
 import type { FetchedPosting } from "../types.ts";
 import { canon, ANY_LOCATION } from "./browser.ts";
 
-const SITE = "xing";
 
 function makeIdent(query: string, location: string): string {
   const q = canon(query);
   const l = canon(location) || ANY_LOCATION;
-  return `${SITE}:${q}@${l}`;
+  // No site prefix: the source's `kind` already says which board this is, and
+  // the bot prints `kind:ident`, so a prefix here would show up doubled.
+  return `${q}@${l}`;
 }
 
 function splitIdent(ident: string): { query: string; location: string } {
-  const colon = ident.indexOf(":");
   const at = ident.lastIndexOf("@");
-  const site = ident.slice(0, colon);
-  if (colon < 0 || at < colon || site !== SITE) {
-    throw new Error(`not a xing ident: ${ident}`);
-  }
-  return {
-    query: ident.slice(colon + 1, at),
-    location: ident.slice(at + 1),
-  };
+  if (at < 0) throw new Error(`not a xing ident: ${ident}`);
+  return { query: ident.slice(0, at), location: ident.slice(at + 1) };
 }
 
 function label(query: string, location: string): string {

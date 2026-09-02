@@ -9,7 +9,7 @@ import { parseRuntimeConfig, extractPostings } from "./sources/xing.ts";
 test("xing: parses prefix and URL forms", () => {
   assert.deepEqual(xing.parse("xing:werkstudent machine learning@Nürnberg"), {
     kind: "xing",
-    ident: "xing:werkstudent machine learning@nürnberg",
+    ident: "werkstudent machine learning@nürnberg",
     label: "XING: werkstudent machine learning, nürnberg",
   });
   assert.deepEqual(
@@ -18,7 +18,7 @@ test("xing: parses prefix and URL forms", () => {
     ),
     {
       kind: "xing",
-      ident: "xing:werkstudent machine learning@nürnberg",
+      ident: "werkstudent machine learning@nürnberg",
       label: "XING: werkstudent machine learning, nürnberg",
     },
   );
