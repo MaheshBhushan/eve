@@ -7,6 +7,7 @@
     "test": "node --test src/*.test.ts",
     "poll": "node src/poller.ts",
     "bot": "node src/bot.ts",
+    "dashboard": "node src/dashboard.ts",
     "register": "node src/bot.ts --register",
     "typecheck": "tsc --noEmit"
   },

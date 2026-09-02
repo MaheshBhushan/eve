@@ -9,7 +9,8 @@
 
 CREATE TABLE IF NOT EXISTS sources (
   id       INTEGER PRIMARY KEY,
-  -- greenhouse | lever | ashby | personio | smartrecruiters | arbeitsagentur | browser
+  -- greenhouse | lever | ashby | personio | smartrecruiters | workday | successfactors | arbeitsagentur
+  --   | stepstone | indeed | xing | linkedin | browser
   kind     TEXT NOT NULL,
   -- Board token / company slug / encoded search query. Meaning is adapter-local.
   ident    TEXT NOT NULL,

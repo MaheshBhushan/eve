@@ -126,7 +126,11 @@ async function onWatch(i: ChatInputCommandInteraction, db: DatabaseSync) {
     return i.editReply(`Couldn't load \`${parsed.kind}:${parsed.ident}\`: empty response.`);
   }
 
-  const label = postings[0]?.company || parsed.label;
+  // A company board is named after its company; a search keeps the label the
+  // adapter built from the query, or every search would be named after
+  // whichever employer happened to rank first.
+  const isSearch = adapter.complete === false || parsed.kind === "arbeitsagentur";
+  const label = isSearch ? parsed.label : postings[0]?.company || parsed.label;
   const source = addSource(db, parsed.kind, parsed.ident, label);
   if (source.label !== label) setSourceLabel(db, source.id, label);
 

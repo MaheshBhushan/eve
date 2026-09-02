@@ -66,6 +66,21 @@ export async function getJson(
   return { body: await res.json(), etag: res.headers.get("etag") };
 }
 
+/** Like getJson, but POSTs a JSON body -- Workday's search endpoint takes no query string. */
+export async function postJson(url: string, payload: unknown): Promise<unknown> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      accept: "application/json",
+      "user-agent": "eve",
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`${url} -> HTTP ${res.status} ${res.statusText}`);
+  return res.json();
+}
+
 /** Boards ship JD bodies as HTML; the fit scorer wants prose, not markup. */
 export function stripHtml(html: string | null | undefined): string | null {
   if (!html) return null;

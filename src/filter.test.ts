@@ -389,6 +389,8 @@ function cfg(over: Partial<Config> = {}): Config {
     browserUseDir: null,
     browserUsePython: "python3",
     browserTimeoutMin: 10,
+    dashboardPort: 8787,
+    dashboardBind: "127.0.0.1",
     ...over,
   };
 }

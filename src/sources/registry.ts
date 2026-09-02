@@ -5,7 +5,13 @@ import { lever } from "./lever.ts";
 import { ashby } from "./ashby.ts";
 import { personio } from "./personio.ts";
 import { smartrecruiters } from "./smartrecruiters.ts";
+import { workday } from "./workday.ts";
+import { successfactors } from "./successfactors.ts";
 import { arbeitsagentur } from "./arbeitsagentur.ts";
+import { indeed } from "./indeed.ts";
+import { xing } from "./xing.ts";
+import { linkedin } from "./linkedin.ts";
+import { stepstone } from "./stepstone.ts";
 import { browser } from "./browser.ts";
 
 /**
@@ -20,7 +26,13 @@ export const ADAPTERS: Adapter[] = [
   ashby,
   personio,
   smartrecruiters,
+  workday,
+  successfactors,
   arbeitsagentur,
+  indeed,
+  xing,
+  linkedin,
+  stepstone,
   browser,
 ];
 

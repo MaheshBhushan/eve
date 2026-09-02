@@ -92,7 +92,7 @@ const RESULT_LIMIT = 50;
  * full-width and composed characters normalise; then case-fold, then collapse
  * whitespace (including the `+` and `%20` a URL brings along).
  */
-function canon(s: string): string {
+export function canon(s: string): string {
   return s
     .normalize("NFKC")
     .replace(/[+_]+/g, " ")
@@ -102,7 +102,7 @@ function canon(s: string): string {
 }
 
 /** Locationless searches are legitimate ("remote anywhere"); name them. */
-const ANY_LOCATION = "anywhere";
+export const ANY_LOCATION = "anywhere";
 
 function makeIdent(site: Site, query: string, location: string): string {
   const q = canon(query);

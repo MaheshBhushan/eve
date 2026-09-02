@@ -64,6 +64,12 @@ export interface Config {
   browserUsePython: string;
   /** Max minutes one browser-driven search may run before being killed. */
   browserTimeoutMin: number;
+
+  /* -------------------------------------------------------- dashboard --- */
+  /** Port the live job dashboard HTTP server listens on. */
+  dashboardPort: number;
+  /** Bind address for the dashboard server. Loopback by default. */
+  dashboardBind: string;
 }
 
 function req(name: string): string {
@@ -96,5 +102,8 @@ export function loadConfig(): Config {
     browserUseDir: process.env.RADAR_BROWSER_USE_DIR ?? null,
     browserUsePython: process.env.RADAR_BROWSER_USE_PYTHON ?? "python3",
     browserTimeoutMin: Number(process.env.RADAR_BROWSER_TIMEOUT_MIN ?? 10),
+
+    dashboardPort: Number(process.env.RADAR_DASHBOARD_PORT ?? 8787),
+    dashboardBind: process.env.RADAR_DASHBOARD_BIND ?? "127.0.0.1",
   };
 }

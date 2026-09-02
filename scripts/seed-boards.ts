@@ -110,7 +110,10 @@ async function main(): Promise<void> {
         continue;
       }
 
-      const name = postings[0]?.company || parsed.label;
+      // Searches keep the adapter's query label; only company boards take the
+      // company name from their first posting (see the same rule in bot.ts).
+      const isSearch = adapter.complete === false || parsed.kind === "arbeitsagentur";
+      const name = isSearch ? parsed.label : postings[0]?.company || parsed.label;
       const source = addSource(db, parsed.kind, parsed.ident, name);
       if (source.label !== name) setSourceLabel(db, source.id, name);
       setFilterHash(db, source.id, filterHash(spec));

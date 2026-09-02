@@ -7,7 +7,9 @@ export type PostingState = "open" | "closed";
  *    roles in full, so a snapshot is authoritative;
  *  - `arbeitsagentur` is a national *search*, complete only while the result set
  *    stays under its cap — it throws rather than return a truncated snapshot;
- *  - `browser` is a scraped, ranked search that can never claim completeness.
+ *  - `stepstone`, `indeed`, `xing`, `linkedin` are direct-HTTP board searches and
+ *    `browser` a driven-browser one; all are ranked, capped searches that can
+ *    never claim completeness.
  */
 export type SourceKind =
   | "greenhouse"
@@ -15,7 +17,13 @@ export type SourceKind =
   | "ashby"
   | "personio"
   | "smartrecruiters"
+  | "workday"
+  | "successfactors"
   | "arbeitsagentur"
+  | "stepstone"
+  | "indeed"
+  | "xing"
+  | "linkedin"
   | "browser";
 
 export type EventType =

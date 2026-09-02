@@ -1,0 +1,15 @@
+[Unit]
+Description=eve live job dashboard (reads the shared SQLite file)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/eve
+EnvironmentFile=%h/eve/.env
+ExecStart=/usr/bin/node src/dashboard.ts
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

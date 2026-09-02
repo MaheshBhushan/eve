@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { greenhouse } from "./sources/greenhouse.ts";
 import { lever } from "./sources/lever.ts";
 import { ashby } from "./sources/ashby.ts";
+import { workday } from "./sources/workday.ts";
 import { stripHtml } from "./sources/index.ts";
 
 /* ------------------------------------------------------------- parse --- */
@@ -125,6 +126,79 @@ test("lever: {ok:false} body throws instead of yielding an empty snapshot", asyn
       () => lever.fetch("no-such-slug", null),
       /Document not found/,
     );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+/* -------------------------------------------------------- workday --- */
+
+test("workday: parses prefix and myworkdayjobs.com URL forms", () => {
+  assert.deepEqual(workday.parse("workday:nvidia.wd5/NVIDIAExternalCareerSite"), {
+    kind: "workday",
+    ident: "nvidia.wd5/NVIDIAExternalCareerSite",
+    label: "NVIDIAExternalCareerSite",
+  });
+  assert.deepEqual(
+    workday.parse("https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite"),
+    { kind: "workday", ident: "nvidia.wd5/NVIDIAExternalCareerSite", label: "NVIDIAExternalCareerSite" },
+  );
+  assert.deepEqual(
+    workday.parse("nvidia.wd5.myworkdayjobs.com/en-US/NVIDIAExternalCareerSite"),
+    { kind: "workday", ident: "nvidia.wd5/NVIDIAExternalCareerSite", label: "NVIDIAExternalCareerSite" },
+  );
+  assert.equal(workday.parse("not a url at all"), null);
+});
+
+test("workday: paginates a fixed total and builds the job URL from externalPath", async () => {
+  const originalFetch = globalThis.fetch;
+  const pages = [
+    {
+      total: 2,
+      jobPostings: [
+        {
+          title: "Senior Engineer",
+          externalPath: "/job/US-CA-Santa-Clara/Senior-Engineer_JR001",
+          locationsText: "US, CA, Santa Clara",
+          postedOn: "Posted Today",
+          bulletFields: ["JR001"],
+        },
+      ],
+    },
+    {
+      // Workday's `total` is unreliable past offset 0 on real tenants -- the
+      // adapter must keep paginating against the total from the first page.
+      total: 0,
+      jobPostings: [
+        {
+          title: "Staff Engineer",
+          externalPath: "/job/India-Bengaluru/Staff-Engineer_JR002",
+          locationsText: "India, Bengaluru",
+          postedOn: "Posted Today",
+          bulletFields: ["JR002"],
+        },
+      ],
+    },
+  ];
+  let call = 0;
+  globalThis.fetch = (async () =>
+    new Response(JSON.stringify(pages[call++]), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    })) as typeof fetch;
+
+  try {
+    const result = await workday.fetch("nvidia.wd5/NVIDIAExternalCareerSite", null);
+    assert.ok(result.postings);
+    const postings = result.postings!;
+    assert.equal(postings.length, 2);
+    assert.equal(postings[0]!.title, "Senior Engineer");
+    assert.equal(
+      postings[0]!.url,
+      "https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite/job/US-CA-Santa-Clara/Senior-Engineer_JR001",
+    );
+    assert.equal(postings[0]!.postedAt, null);
+    assert.equal(postings[1]!.externalId, "JR002");
   } finally {
     globalThis.fetch = originalFetch;
   }

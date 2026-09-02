@@ -1,5 +1,5 @@
 <h1 align="center">eve</h1>
-<p align="center">A Discord bot that watches company job boards, so you hear about a posting while applying still matters.</p>
+<p align="center">A live job feed aggregator: it polls company boards and job searches, dedupes, and shows every new posting on one page the moment it is found.</p>
 
 <p align="center">
   <img alt="Node 26+" src="https://img.shields.io/badge/node-%E2%89%A526-5FA04E?logo=node.js&logoColor=white">
@@ -27,12 +27,25 @@ You `/watch greenhouse:stripe`. From then on, new postings, closures, reposts an
 
 This is the sibling of [issue-radar](https://github.com/MaheshBhushan/oasis), and the same two-process split exists for the same reasons — but the data source inverts the whole design. GitHub serves a *delta*: "what changed since T", and silence means nothing happened. A job board serves a **full snapshot** of what is open right now — no cursor, no timeline, no "closed" notification. So a posting's **absence from the snapshot is the close event**, the diff is a set-difference against everything stored rather than a field comparison against what arrived, and snapshot completeness becomes safety-critical: a truncated fetch is indistinguishable from a company closing every req it has, and acting on it would wipe the claims and alerts the bot exists to raise. Most of the defensive code in this repo exists for that one reason (see the mass-delist guard, below).
 
-Two processes share one SQLite file:
+Three processes share one SQLite file:
 
 - **poller** — one-shot, run by a systemd timer. Fetches each board, diffs it against storage, scores fit, queues events. Never talks to Discord.
-- **bot** — long-lived gateway client. Drains the queue, serves slash commands. Never talks to a job board except to validate a `/watch`.
+- **dashboard** — long-lived HTTP server. Serves the live feed (below) straight from the database. Needs no Discord credentials.
+- **bot** — long-lived gateway client, optional. Drains the queue, serves slash commands. Never talks to a job board except to validate a `/watch`.
 
 Split so a Discord outage cannot lose events — they sit in the queue and drain on reconnect — and a poller crash cannot take the gateway down. Events are only marked delivered after Discord confirms.
+
+## Live dashboard
+
+```bash
+npm run dashboard          # http://127.0.0.1:8787
+```
+
+One page, newest discovery first. Each card shows title, company, location, the source it came from, when the board says it was posted (only when the board actually stated a date), and when eve first saw it. Postings found in the last hour carry a **NEW** badge. The page holds a Server-Sent Events connection and re-renders itself within a few seconds of the poller writing new rows, so it can stay open all day without a refresh.
+
+`first_seen` is the field that matters here. `posted_at` is whatever the board claims, and many boards only give a relative "3 days ago" or nothing at all; `first_seen` is the moment eve actually discovered the posting, which is what decides whether you were early.
+
+The dashboard binds to loopback by default (`RADAR_DASHBOARD_BIND`, `RADAR_DASHBOARD_PORT`) and has no authentication. To reach it from another machine, expose it over your tailnet (`tailscale serve`) rather than binding to a public interface.
 
 ## Quickstart
 
@@ -99,16 +112,28 @@ Each new posting is scored 0–100 against [job-pipeline](https://github.com/Mah
 | `ashby` | `ashby:ramp` | complete |
 | `personio` | `personio:pitch` | complete |
 | `smartrecruiters` | `smartrecruiters:BoschGroup` | complete |
+| `workday` | `workday:nvidia.wd5/NVIDIAExternalCareerSite` | complete |
+| `successfactors` | `successfactors:jobs.sap.com` | complete, or it throws |
 | `arbeitsagentur` | `arbeitsagentur:werkstudent@münchen+25` | complete, or it throws |
-| `browser` | `linkedin:rust engineer@berlin` | **never complete** |
+| `stepstone` | `stepstone:werkstudent ki@münchen` | **never complete** |
+| `indeed` | `indeed:werkstudent@nürnberg` | **never complete** |
+| `xing` | `xing:machine learning@nürnberg` | **never complete** |
+| `linkedin` | `linkedin:werkstudent machine learning@nürnberg` | **never complete** |
+| `browser` | `linkedin:rust engineer@berlin` (only if the direct adapters are removed) | **never complete** |
 
 The first five are per-employer boards on public, unauthenticated JSON APIs — one request per board (SmartRecruiters paginates), each a genuine complete snapshot.
+
+**Workday** (`workday`) is the same shape behind a POST: an unauthenticated JSON search per tenant, 20 per page, paginated to the total the first page reports (later pages report `total: 0`, so it is captured once). The board only states relative publish times, so `posted_at_exact` is always 0 for it. The reference is `tenant.wdN/site`; paste the career-site URL and the adapter derives it.
+
+**SuccessFactors** (`successfactors`) is HTML, not JSON: the standard `/search/?startrow=N` listing, 25 rows per page, total read from the results table's `aria-label`. Paginated to the total and it throws on a short snapshot, exactly like SmartRecruiters. Some tenants sit behind SSO (Infineon); those redirect off-host and the adapter throws rather than returning an empty board. No publish date on the listing.
 
 **Bundesagentur für Arbeit** (`arbeitsagentur`) is different in kind: a national *search* rather than one employer's board, and by a wide margin the highest-yield source for the German market. It is *conditionally* complete — paginable to `maxErgebnisse` for a narrow search, hopeless for `praktikum` nationwide (33,487 results). Rather than claim a completeness it doesn't have, it **throws** above an 800-result cap and tells you to narrow the search, which costs exactly one request. It tolerates a small shortfall against the promised total, because paginating a live search is racy and demanding an exact match makes every large search fail permanently — that is not hypothetical, it killed a 439-of-440 search during development.
 
 Measured yield is lopsided enough to be worth stating plainly: one city search (`werkstudent@münchen+25`) returns **121** matching student roles, while the entire Bosch board — 4,727 postings, ~48 requests per cycle — returns **48**. Company boards are for employers you specifically care about, not for volume.
 
-Plus an opt-in browser-driven adapter (`src/sources/browser.ts`, via [browser-use](https://github.com/browser-use/browser-use)) for LinkedIn, Indeed and StepStone search pages — disabled unless `RADAR_BROWSER_USE_DIR` is configured. Scraping those sites likely breaches their terms of service, and a driven browser signed into your own account can get it rate-limited, challenged or flagged; there is no evasion built in (no proxy rotation, no fingerprint spoofing, no CAPTCHA solving) — a block is meant to fail loudly so the poller's failure counter mutes the source, not to be worked around.
+**The four board searches** (`stepstone`, `indeed`, `xing`, `linkedin`) talk to each site over plain HTTP with a browser user agent and no session, and read whatever structured data the search page already carries: StepStone's server-rendered cards, Indeed's embedded job-card JSON, XING's inlined GraphQL cache, LinkedIn's unauthenticated guest search fragment. Each fetches page 1 only (LinkedIn: up to four pages of the last seven days, newest first) and declares itself `complete: false`, so the poller never reads an absence as a closure. Only LinkedIn and Indeed state a publish date. Indeed sits behind Cloudflare and intermittently answers with a challenge page; the adapter throws on it and the failure counter mutes the source until it recovers. None of these do pagination that robots.txt disallows, and none do any evasion — a block is a signal to stop, not a problem to route around.
+
+Plus an opt-in browser-driven adapter (`src/sources/browser.ts`, via [browser-use](https://github.com/browser-use/browser-use)), now a fallback behind the direct adapters above — disabled unless `RADAR_BROWSER_USE_DIR` is configured. Scraping those sites likely breaches their terms of service, and a driven browser signed into your own account can get it rate-limited, challenged or flagged; there is no evasion built in (no proxy rotation, no fingerprint spoofing, no CAPTCHA solving) — a block is meant to fail loudly so the poller's failure counter mutes the source, not to be worked around.
 
 ## Filtering
 
@@ -171,6 +196,8 @@ Seeding applies the same filter the poller does, and records the same hash. That
 | `RADAR_BROWSER_USE_DIR` | — | Path to a browser-use checkout. Unset disables the LinkedIn/Indeed/StepStone adapter |
 | `RADAR_BROWSER_USE_PYTHON` | `python3` | Interpreter with browser-use and Playwright's Chromium installed |
 | `RADAR_BROWSER_TIMEOUT_MIN` | `10` | Max minutes one browser-driven search may run before being killed |
+| `RADAR_DASHBOARD_PORT` | `8787` | Live dashboard port |
+| `RADAR_DASHBOARD_BIND` | `127.0.0.1` | Dashboard bind address. Keep loopback and expose over the tailnet |
 
 ## Posting identity
 
@@ -198,6 +225,7 @@ src/
   delivery.ts        queue drain, edit-in-place vs post-fresh, alerts-before-digest
   render.ts          embeds
   db.ts              storage layer
+  dashboard.ts       live feed: HTTP + SSE over the same SQLite file
   schema.sql         tables
   config.ts          env parsing
   types.ts           shared types
@@ -209,8 +237,14 @@ src/
     ashby.ts          Ashby job-board API adapter
     personio.ts       Personio per-tenant board adapter
     smartrecruiters.ts SmartRecruiters postings API adapter
+    workday.ts        Workday per-tenant JSON search adapter
+    successfactors.ts SAP SuccessFactors career-site HTML adapter
     arbeitsagentur.ts Bundesagentur fuer Arbeit national search
-    browser.ts        opt-in LinkedIn/Indeed/StepStone adapter, complete: false
+    stepstone.ts      StepStone search, direct HTTP, complete: false
+    indeed.ts         Indeed search, direct HTTP, complete: false
+    xing.ts           XING search, direct HTTP, complete: false
+    linkedin.ts       LinkedIn guest search, direct HTTP, complete: false
+    browser.ts        opt-in browser-use fallback, complete: false
   *.test.ts           test suite, no network
 config/
   filters.example.json  what to track; copy to filters.json
@@ -218,7 +252,7 @@ config/
 scripts/
   seed-boards.ts     batch /watch from a board list, no Discord needed
   board_search.py    browser-use driven search, called by sources/browser.ts
-deploy/              systemd units + timer
+deploy/              systemd units (poll, dashboard, bot) + timer
 ```
 
 ## Deployment
@@ -227,7 +261,8 @@ deploy/              systemd units + timer
 mkdir -p ~/.config/systemd/user
 cp deploy/*.service deploy/*.timer ~/.config/systemd/user/
 systemctl --user daemon-reload
-systemctl --user enable --now eve-bot.service eve-poll.timer
+systemctl --user enable --now eve-dashboard.service eve-poll.timer
+systemctl --user enable --now eve-bot.service     # optional, Discord alerts
 loginctl enable-linger "$USER"     # or user units die on logout
 ```
 
