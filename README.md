@@ -266,6 +266,23 @@ systemctl --user enable --now eve-bot.service     # optional, Discord alerts
 loginctl enable-linger "$USER"     # or user units die on logout
 ```
 
+### Public hostname
+
+Cloudflare Pages cannot host the dashboard: it reads a SQLite file on the machine that runs the poller. A Cloudflare Tunnel gives that local server a hostname without opening a port:
+
+```bash
+sudo pacman -S cloudflared              # or the package for your distro
+cloudflared tunnel login                # browser, once; writes ~/.cloudflared/cert.pem
+cloudflared tunnel create eve-dashboard
+cp deploy/cloudflared.example.yml ~/.cloudflared/config.yml   # fill in the tunnel id and hostname
+cloudflared tunnel route dns eve-dashboard db.example.com
+cp deploy/cloudflared-eve.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now cloudflared-eve.service
+```
+
+A freshly created record can sit as a cached negative answer in your resolver for a while; `resolvectl flush-caches` clears it locally. The dashboard has no login, so a public hostname shows the feed to anyone who finds it. Put a Cloudflare Access policy on the hostname unless you are fine with that.
+
 The timer fires every 10 minutes. Job boards themselves move on a scale of days, so this is not about seeing a posting sooner than the board publishes it — it is about the freshness alert having a tight enough window to still be actionable when it fires.
 
 Polling that often stays cheap because the expensive part is scoring, not fetching: Greenhouse and Ashby honour `If-None-Match`, so an unchanged board costs one 304 and does no work. Only genuinely new postings reach the LLM, and `RADAR_FIT_BUDGET` caps how many per cycle regardless of interval — a tighter interval drains a scoring backlog faster, it does not raise the ceiling.
