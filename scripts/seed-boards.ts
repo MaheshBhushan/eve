@@ -93,7 +93,8 @@ async function main(): Promise<void> {
     try {
       // Fetching before registering is the only honest existence check: several
       // boards answer a typo'd slug with HTTP 200 and an error body.
-      const result = await adapterFor(parsed.kind).fetch(parsed.ident, null);
+      const adapter = adapterFor(parsed.kind);
+      const result = await adapter.fetch(parsed.ident, null);
       const postings = result.postings;
       if (postings === null) throw new Error("empty response");
 
