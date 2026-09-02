@@ -8,3 +8,4 @@ __pycache__/
 # Live configs; the .example.json files are the templates.
 config/boards.json
 config/filters.json
+config/searches.json
