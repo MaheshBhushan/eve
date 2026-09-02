@@ -93,11 +93,14 @@ npm run poll
 | Event | Fires when |
 |---|---|
 | `vanished_while_claimed` | You `/claim`ed a posting and it came off the board before you `/applied`. The race-warning analogue from issue-radar — it reports something you can no longer act on, so the lesson is about pace. |
+| `fresh_opening` | A newly found posting whose *stated* publish time is within `RADAR_FRESH_PING_HOURS`. No fit score needed — this is the be-first-to-apply ping, and it works on the search sources (LinkedIn, StepStone, XING) that ship no description. |
 | `high_fit` | A posting scores at/above `RADAR_FIT_THRESHOLD` and is still younger than `RADAR_FRESH_HOURS`. |
 | `deadline` | A stated application deadline is within `RADAR_DEADLINE_DAYS`. |
 | `posting_reposted` | A role you'd seen before is relisted under a new ATS id — the search reopened, or a previous hire fell through. |
 
 Plus a quiet `stale` nudge for a claim you never acted on. Alerts post fresh with a ping and are never batched; more than `RADAR_DIGEST_THRESHOLD` quiet postings updated in one cycle collapse into a single fit-ranked digest instead of flooding the channel one embed at a time.
+
+A new posting's stated age decides what, if anything, it becomes: within `RADAR_FRESH_PING_HOURS` it is a `fresh_opening` alert; within `RADAR_ALERT_MAX_AGE_HOURS` it is a quiet `posting_opened`; older than that it is stored and shown on the dashboard but queues **no Discord event**. That last bucket exists because ranked search pages churn — a week-old posting drifting back into the visible window is not news, and before this gate roughly two thirds of LinkedIn "new" alerts were days old. A posting with no stated publish date is always a quiet opening: it can never claim to be fresh, and it is never silenced either.
 
 ## Fit scoring
 
@@ -189,6 +192,8 @@ Seeding applies the same filter the poller does, and records the same hash. That
 | `RADAR_FIT_THRESHOLD` | `75` | Score at or above this pings you |
 | `RADAR_FRESH_HOURS` | `48` | A posting only counts as fresh this long after its *stated* publish date |
 | `RADAR_FIT_BUDGET` | `25` | Max LLM scorings per poll cycle |
+| `RADAR_FRESH_PING_HOURS` | `3` | A new posting published within this many hours pings as `fresh_opening` |
+| `RADAR_ALERT_MAX_AGE_HOURS` | `24` | A new posting older than this (stated time) is dashboard-only, no Discord event |
 | `RADAR_PING` | `@here` | Discord user id for actionable alerts, or `@here` |
 | `RADAR_DIGEST_THRESHOLD` | `5` | Quiet postings updated in one cycle before they collapse into one digest |
 | `RADAR_STALE_DAYS` | `7` | Claimed but not applied this long -> a nudge |
@@ -285,7 +290,7 @@ systemctl --user enable --now cloudflared-eve.service
 
 A freshly created record can sit as a cached negative answer in your resolver for a while; `resolvectl flush-caches` clears it locally. The dashboard has no login, so a public hostname shows the feed to anyone who finds it. Put a Cloudflare Access policy on the hostname unless you are fine with that.
 
-The timer fires every 10 minutes. Job boards themselves move on a scale of days, so this is not about seeing a posting sooner than the board publishes it — it is about the freshness alert having a tight enough window to still be actionable when it fires.
+The timer fires every 5 minutes. The search sources state publish times to the hour or better (LinkedIn's "3 hours ago" card text, StepStone's `datePosted` in the page's preloaded state, XING's `refreshedAt`), and the `fresh_opening` ping exists to beat the applicant queue, so the interval is the ceiling on how early that ping can land. A full cycle over ~70 sources takes about two minutes.
 
 Polling that often stays cheap because the expensive part is scoring, not fetching: Greenhouse and Ashby honour `If-None-Match`, so an unchanged board costs one 304 and does no work. Only genuinely new postings reach the LLM, and `RADAR_FIT_BUDGET` caps how many per cycle regardless of interval — a tighter interval drains a scoring backlog faster, it does not raise the ceiling.
 
@@ -300,6 +305,7 @@ Recorded because each one cost real debugging time.
 - **Ashby lists one role in several locations** via `secondaryLocations`; flattening those into separate postings makes one job look like three, so only the primary `location` feeds identity and the rest is folded into a "(+N more)" display suffix. Ashby titles also carry a leading space in the raw feed, and `isListed:false` means the board itself is hiding the posting — as good as closed, so it's filtered out of the snapshot.
 - **A short snapshot is indistinguishable from a mass delisting.** A board erroring out mid-pagination returns a short list that looks exactly like a company closing every req it has. **This is the most important safety property in the system**: the poller refuses any cycle where more than `RADAR_MASS_DELIST_RATIO` of a board's open postings would vanish at once, changing no rows and counting a failure instead of acting on it (boards under 4 open postings are exempt — losing 2 of 3 is a Tuesday, not a catastrophe, and a tiny board could otherwise never close anything). Its real-world corollary: **if you ever change the identity function in `key.ts`, every stored key mismatches and every board looks 100% delisted on the next poll.** The guard catches exactly that — this was observed live during development — but the fix is to delete the database and re-seed, not to fight the guard.
 - **Scraped search pages are not snapshots.** Pagination is capped, results re-rank between pages and promoted rows get injected, so reaching "the last page" means the site stopped talking, not that every open role was seen. The browser adapter therefore declares `complete: false`, and the poller never infers closure from an absence in an incomplete source — otherwise a posting falling off page 1 between two searches would close a live job and fire a false `vanished_while_claimed` alert.
+- **XING's publish time is `refreshedAt`.** Live search results carry no activated/published field, only `refreshedAt` and `activeUntil`. XING bumps `refreshedAt` when an employer re-boosts a listing, so an old role that was just refreshed will look fresh. That is a known trade-off: without it XING could never state a date at all.
 - **A board that states no publish date can never fire the freshness alert.** When a board omits it, `posted_at` falls back to first-sighting and `posted_at_exact` is recorded as 0. On the first poll after `/watch`, first-sighting is *now* for the board's entire back catalogue — without that flag, adding a source would ping its whole history as breaking news on day one.
 - **A delisted posting can never be refetched**, so the JD is captured on first sighting (Greenhouse is fetched with `content=true` for exactly this reason) and a later cycle returning a shorter or null description must never erase what's already stored.
 - **A deferred Discord interaction dies after 15 minutes.** `/fit` shells out to `claude` and can take up to its own 90-second timeout, well inside that window, but it's the reason the interaction is deferred immediately on receipt rather than answered synchronously.

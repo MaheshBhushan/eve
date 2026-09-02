@@ -30,6 +30,7 @@ export type EventType =
   | "posting_opened"
   | "posting_closed"
   | "posting_reposted"
+  | "fresh_opening"
   | "high_fit"
   | "vanished_while_claimed"
   | "deadline"

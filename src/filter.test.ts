@@ -381,6 +381,8 @@ function cfg(over: Partial<Config> = {}): Config {
     fitThreshold: 75,
     freshHours: 48,
     fitBudget: 25,
+    freshPingHours: 3,
+    alertMaxAgeHours: 24,
     staleDays: 7,
     deadlineDays: 3,
     maxFailures: 5,

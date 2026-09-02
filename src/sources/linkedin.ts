@@ -14,6 +14,12 @@
  * size is 10; we fetch start=0,10,20,30 (4 pages max) and stop as soon as a
  * page comes back empty. Requests are spaced ~1s apart.
  *
+ * Publish time: the card's `<time datetime="YYYY-MM-DD">` is date-only, but
+ * its text is a relative age ("3 hours ago", "23 minutes ago") with the
+ * precision the freshness alert actually needs. The text is resolved against
+ * the fetch clock and wins; the attribute is the fallback when the text is
+ * absent or unparseable (LinkedIn localises it per Accept-Language).
+ *
  * There are deliberately NO evasion techniques: a 429 or 999 response throws
  * immediately, no retry, no backoff-and-retry, no header rotation. That is
  * the site telling us to stop.
@@ -102,7 +108,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 /** One `<li>` job card -> a posting, or null if a required field is missing. */
-export function parseCard(li: string): FetchedPosting | null {
+export function parseCard(li: string, now = Date.now()): FetchedPosting | null {
   const urn = /data-entity-urn="urn:li:jobPosting:(\d+)"/.exec(li);
   if (!urn || !urn[1]) return null;
   const externalId = urn[1];
@@ -118,8 +124,10 @@ export function parseCard(li: string): FetchedPosting | null {
   const locationM = /class="[^"]*job-search-card__location[^"]*"[^>]*>([\s\S]*?)<\/span>/.exec(li);
   const location = stripHtml(locationM?.[1])?.trim() ?? null;
 
-  const timeM = /<time[^>]*datetime="(\d{4}-\d{2}-\d{2})"/.exec(li);
-  const postedAt = timeM?.[1] ? new Date(timeM[1]).toISOString() : null;
+  const timeM = /<time[^>]*datetime="(\d{4}-\d{2}-\d{2})"[^>]*>([\s\S]*?)<\/time>/.exec(li);
+  const postedAt =
+    parseRelativeAge(stripHtml(timeM?.[2]) ?? "", now) ??
+    (timeM?.[1] ? new Date(timeM[1]).toISOString() : null);
 
   return {
     externalId,
@@ -133,6 +141,28 @@ export function parseCard(li: string): FetchedPosting | null {
     closesAt: null,
     description: null,
   };
+}
+
+const REL_UNIT_MS: Record<string, number> = {
+  minute: 60_000,
+  hour: 3_600_000,
+  day: 86_400_000,
+  week: 7 * 86_400_000,
+  month: 30 * 86_400_000,
+};
+
+/**
+ * "3 hours ago" / "1 minute ago" / "2 weeks ago" -> ISO timestamp, or null.
+ * Anything not in this exact English shape (localised text, "just now",
+ * "30+ days ago") returns null and the caller falls back to the date attribute.
+ */
+export function parseRelativeAge(text: string, now = Date.now()): string | null {
+  const m = /^\s*(\d+)\s+(minute|hour|day|week|month)s?\s+ago\s*$/i.exec(text);
+  if (!m) return null;
+  const n = Number(m[1]);
+  const unit = REL_UNIT_MS[m[2]!.toLowerCase()];
+  if (!unit || !Number.isFinite(n)) return null;
+  return new Date(now - n * unit).toISOString();
 }
 
 /** Split an HTML fragment into its `<li>` job cards. */

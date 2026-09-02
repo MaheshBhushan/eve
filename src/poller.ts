@@ -250,7 +250,14 @@ export async function pollSource(
       touchPosting(db, id);
       continue;
     }
-    emitDiffEvents(db, source.id, id, p.diffs);
+    emitDiffEvents(
+      db,
+      source.id,
+      id,
+      p.diffs,
+      { postedAt, exact: exact ? 1 : 0 },
+      { freshPingHours: cfg.freshPingHours, alertMaxAgeHours: cfg.alertMaxAgeHours },
+    );
     for (const d of p.diffs) {
       if (d.kind === "updated") report.updated++;
       else report.opened++;

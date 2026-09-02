@@ -29,6 +29,21 @@ export interface Config {
   /** Max fit scorings per cycle. Each is an LLM call; this bounds the spend. */
   fitBudget: number;
 
+  /* -------------------------------------------------------- openings --- */
+  /**
+   * A newly seen posting whose stated publish time is within this many hours
+   * is pinged as a `fresh_opening`, regardless of fit. This is the
+   * be-first-to-apply signal; it needs no LLM and no description.
+   */
+  freshPingHours: number;
+  /**
+   * A newly seen posting older than this (by stated publish time) is stored
+   * and shown on the dashboard but queues no Discord event at all. Ranked
+   * search pages churn: a week-old posting drifting back into the visible
+   * window is not news, and without this gate it would be announced as one.
+   */
+  alertMaxAgeHours: number;
+
   /* ---------------------------------------------------------- sweeps --- */
   /** Claimed but not applied for this long -> a nudge. */
   staleDays: number;
@@ -91,6 +106,9 @@ export function loadConfig(): Config {
     fitThreshold: Number(process.env.RADAR_FIT_THRESHOLD ?? 75),
     freshHours: Number(process.env.RADAR_FRESH_HOURS ?? 48),
     fitBudget: Number(process.env.RADAR_FIT_BUDGET ?? 25),
+
+    freshPingHours: Number(process.env.RADAR_FRESH_PING_HOURS ?? 3),
+    alertMaxAgeHours: Number(process.env.RADAR_ALERT_MAX_AGE_HOURS ?? 24),
 
     staleDays: Number(process.env.RADAR_STALE_DAYS ?? 7),
     deadlineDays: Number(process.env.RADAR_DEADLINE_DAYS ?? 3),

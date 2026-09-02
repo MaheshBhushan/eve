@@ -7,6 +7,7 @@ export const COLOR = {
   scored: 0x8250df,
   vanished: 0xcf222e,
   highFit: 0x2da44e,
+  fresh: 0x1f883d,
   deadline: 0xd4a72c,
   reposted: 0x0969da,
   stale: 0xd4a72c,
@@ -145,6 +146,20 @@ export function alertEmbed(
         .setDescription(
           `Claimed by ${payload.claimed_by ?? "you"} ${days} day${days === 1 ? "" : "s"} ago and it came off the board before you applied.\n` +
             `Worth tightening the gap between claiming and applying.`,
+        );
+    }
+    case "fresh_opening": {
+      // Just published, by the board's own clock. No fit number here: the
+      // point is to get eyes on it before the applicant queue forms, and the
+      // scorer may not have a description to work with on a search source.
+      const hours = Number(payload.ageHours ?? 0);
+      const when = hours < 1 ? `${Math.max(1, Math.round(hours * 60))}m` : `${Math.round(hours)}h`;
+      return base
+        .setColor(COLOR.fresh)
+        .setTitle(`Just posted (${when}): ${heading}`)
+        .setDescription(
+          `${p.company}${p.location ? ` · ${p.location}` : ""}\n` +
+            `Published ${when} ago. Early applications get read; \`/claim ${p.id}\` to mark it yours.`,
         );
     }
     case "high_fit": {

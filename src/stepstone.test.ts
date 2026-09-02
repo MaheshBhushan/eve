@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseSearchHtml, stepstone } from "./sources/stepstone.ts";
+import { extractPostedDates, parseSearchHtml, stepstone } from "./sources/stepstone.ts";
 
 function fixtureHtml(): string {
   return `<html><body>
@@ -20,6 +20,7 @@ function fixtureHtml(): string {
   <div><span data-at="job-item-location"><span class="res-8wkck8"><svg><path d="M1"></path></svg></span><span class="res-du9bhi">M&#252;nchen</span></span></div>
   <span data-at="job-item-timeago"><time class="">vor 2 Tagen</time></span>
 </div>
+<script>window.__PRELOADED_STATE__ = {"items":[{"id":14391264,"title":"Werkstudent Machine Learning","labels":[{"id":"new"}],"url":"/x","companyName":"Acme GmbH","datePosted":"2026-08-26T09:15:00+02:00","location":"N\u00fcrnberg"},{"id":99999999,"title":"Unrelated","datePosted":"2026-08-01T00:00:00+02:00"}]};</script>
 </body></html>`;
 }
 
@@ -36,9 +37,11 @@ test("parseSearchHtml extracts both cards", () => {
     first!.url,
     "https://www.stepstone.de/stellenangebote--Werkstudent-Machine-Learning-Acme-GmbH--14391264-inline.html",
   );
-  assert.equal(first!.postedAt, null);
+  // Joined from the preloaded state by job id, converted to UTC.
+  assert.equal(first!.postedAt, "2026-08-26T07:15:00.000Z");
 
   assert.equal(second!.externalId, "14400001");
+  assert.equal(second!.postedAt, null, "no state entry for this id -> no guess");
   assert.equal(second!.company, "Beta AG");
   assert.equal(second!.location, "München");
 });
@@ -67,4 +70,13 @@ test("stepstone.parse builds an ident from a /jobs/<q>/in-<loc> URL", () => {
 
 test("stepstone declares itself a partial source", () => {
   assert.equal(stepstone.complete, false);
+});
+
+test("extractPostedDates keys on the id/title pair and does not bleed across items", () => {
+  const html = `{"items":[{"id":1,"title":"A","labels":[{"id":77}],"datePosted":"2026-09-01T10:00:00Z"},{"id":2,"title":"B"},{"id":3,"title":"C","datePosted":"not a date"},{"id":4,"title":"D","datePosted":"2026-09-02T00:00:00+02:00"}]}`;
+  const dates = extractPostedDates(html);
+  assert.deepEqual([...dates.entries()], [
+    ["1", "2026-09-01T10:00:00.000Z"],
+    ["4", "2026-09-01T22:00:00.000Z"],
+  ]);
 });

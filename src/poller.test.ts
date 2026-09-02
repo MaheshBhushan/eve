@@ -7,6 +7,7 @@ import type { DatabaseSync } from "node:sqlite";
 
 import type { Config } from "./config.ts";
 import {
+  getPosting,
   addSource,
   getSource,
   listOpenPostings,
@@ -50,6 +51,11 @@ function cfg(over: Partial<Config> = {}): Config {
     fitThreshold: 75,
     freshHours: 48,
     fitBudget: 25,
+    freshPingHours: 3,
+    // The fixture board is dated 2026-07-01. These tests are about snapshot
+    // mechanics, not alert policy, so the age gate is opened wide here and
+    // exercised on its own below.
+    alertMaxAgeHours: Number.POSITIVE_INFINITY,
     staleDays: 7,
     deadlineDays: 3,
     maxFailures: 5,
@@ -146,6 +152,32 @@ test("cold cycle inserts everything as new, identical rerun says nothing", async
   assert.equal(second.updated, 0);
   assert.equal(second.closed, 0);
   assert.equal(eventTypes(db).length, before, "an unchanged board is not news");
+});
+
+test("a new posting is pinged, fed or silenced by its stated age", async (t) => {
+  const db = freshDb(t);
+  const s = src(db);
+  const h = 3_600_000;
+  const iso = (agoMs: number) => new Date(Date.now() - agoMs).toISOString();
+  const snapshot = [
+    posting({ externalId: "1", title: "Fresh", postedAt: iso(1 * h) }),
+    posting({ externalId: "2", title: "Recent", postedAt: iso(10 * h) }),
+    posting({ externalId: "3", title: "Stale", postedAt: iso(72 * h) }),
+    posting({ externalId: "4", title: "Undated", postedAt: null }),
+  ];
+  const policy = cfg({ freshPingHours: 3, alertMaxAgeHours: 24 });
+  const report = await pollSource(db, policy, s, fakeAdapter(snapshot));
+
+  assert.equal(report.opened, 4, "every posting is stored and counted");
+  assert.equal(listOpenPostings(db, s.id).length, 4, "the silent one is still tracked");
+  const events = pendingEvents(db, 50);
+  const byTitle = new Map(
+    events.map((e) => [getPosting(db, e.posting_id)!.title, e.type]),
+  );
+  assert.equal(byTitle.get("Fresh"), "fresh_opening");
+  assert.equal(byTitle.get("Recent"), "posting_opened");
+  assert.equal(byTitle.has("Stale"), false, "a week-old drift-in is not news");
+  assert.equal(byTitle.get("Undated"), "posting_opened", "unknown age stays in the feed");
 });
 
 test("a 304 touches nothing but the poll timestamp", async (t) => {

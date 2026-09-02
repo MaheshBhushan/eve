@@ -1,21 +1,23 @@
 [Unit]
-Description=Run the eve poller every 10 minutes
+Description=Run the eve poller every 5 minutes
 
 [Timer]
 OnBootSec=2min
-# A 10-minute refresh. Job boards themselves move on a scale of days, so this is
-# not about catching a posting sooner than the board publishes it -- it is about
-# the freshness alert having a tight enough window to still be actionable when it
-# fires.
+# A 5-minute refresh. The search sources (LinkedIn, StepStone, XING) state
+# publish times to the hour or better and the `fresh_opening` ping exists to
+# beat the applicant queue, so the interval is the ceiling on how early that
+# ping can be. A full cycle over ~70 sources takes about two minutes, which
+# leaves headroom; if cycles start overrunning, systemd simply skips a firing
+# (see eve-poll.service).
 #
 # Cost stays bounded because the expensive part is scoring, not polling:
 # Greenhouse and Ashby honour If-None-Match, so an unchanged board costs one 304
 # and does no work at all. Only genuinely new postings reach the LLM, and
 # RADAR_FIT_BUDGET caps how many per cycle regardless of interval -- a tighter
 # interval drains a scoring backlog faster, it does not raise the ceiling.
-OnUnitActiveSec=10min
+OnUnitActiveSec=5min
 # Jitter well under the interval, so cycles cannot bunch up against each other.
-RandomizedDelaySec=90
+RandomizedDelaySec=45
 Persistent=true
 
 [Install]

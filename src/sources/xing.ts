@@ -197,8 +197,12 @@ export function extractPostings(crate: unknown): FetchedPosting[] {
       throw new Error(`xing: job ${i} (${String(id)}) has no valid url`);
     }
 
+    // Live search results (verified 2026-09-02) carry only `refreshedAt` and
+    // `activeUntil`; the activated/published/created fields are absent. XING
+    // bumps `refreshedAt` when a listing is (re)published, so it is the
+    // closest thing to a publish time and beats having no date at all.
     const publishedRaw =
-      job.activatedAt ?? job.publishedAt ?? job.createdAt ?? null;
+      job.activatedAt ?? job.publishedAt ?? job.createdAt ?? job.refreshedAt ?? null;
     const postedAt =
       typeof publishedRaw === "string" && !Number.isNaN(Date.parse(publishedRaw))
         ? new Date(publishedRaw).toISOString()

@@ -8,6 +8,7 @@ import type { EventRow, EventType, PostingRow, SourceRow } from "./types.ts";
 /** Events that always post fresh with a ping instead of editing in place. */
 const ALERTS = new Set<EventType>([
   "vanished_while_claimed",
+  "fresh_opening",
   "high_fit",
   "deadline",
   "posting_reposted",

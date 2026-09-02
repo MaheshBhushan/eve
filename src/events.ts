@@ -21,17 +21,70 @@ import type { PostingRow } from "./types.ts";
 const DAY_MS = 86_400_000;
 const HOUR_MS = 3_600_000;
 
+/** What the poller knows about a posting's age when it queues its opening. */
+export interface OpeningAge {
+  /** ISO publish time as stored. */
+  postedAt: string;
+  /** 1 when the board stated it, 0 when it is our own first sighting. */
+  exact: number;
+}
+
+export interface OpeningPolicy {
+  freshPingHours: number;
+  alertMaxAgeHours: number;
+}
+
+/** Bucket a new posting by stated age. Unknown age is never fresh and never stale. */
+export function classifyOpening(
+  age: OpeningAge,
+  policy: OpeningPolicy,
+  now = Date.now(),
+): { kind: "fresh" | "quiet" | "silent"; ageHours: number | null } {
+  if (age.exact !== 1) return { kind: "quiet", ageHours: null };
+  const t = parseUtc(age.postedAt);
+  if (Number.isNaN(t)) return { kind: "quiet", ageHours: null };
+  const ageHours = (now - t) / HOUR_MS;
+  if (ageHours <= policy.freshPingHours) return { kind: "fresh", ageHours };
+  if (ageHours > policy.alertMaxAgeHours) return { kind: "silent", ageHours };
+  return { kind: "quiet", ageHours };
+}
+
+/**
+ * `age` and `policy` shape what a `new` diff becomes:
+ *
+ *   - within `freshPingHours`     -> `fresh_opening`, a pinged alert
+ *   - within `alertMaxAgeHours`   -> `posting_opened`, the quiet feed
+ *   - older than that             -> no event; the row still exists for the
+ *                                    dashboard, but Discord hears nothing
+ *   - no stated publish time      -> `posting_opened`, as before
+ *
+ * The silent bucket is what stops ranked search pages from re-announcing
+ * their back catalogue every time the visible window shifts. Omit both to get
+ * the old behaviour (every new posting is a quiet opening); tests and the
+ * `/watch` seed path use that.
+ */
 export function emitDiffEvents(
   db: DatabaseSync,
   sourceId: number,
   postingId: number,
   diffs: Diff[],
+  age?: OpeningAge,
+  policy?: OpeningPolicy,
 ): void {
   for (const d of diffs) {
     switch (d.kind) {
-      case "new":
+      case "new": {
+        const c = age && policy ? classifyOpening(age, policy) : { kind: "quiet" as const, ageHours: null };
+        if (c.kind === "silent") break;
+        if (c.kind === "fresh") {
+          queueEvent(db, sourceId, postingId, "fresh_opening", {
+            ageHours: Math.round((c.ageHours ?? 0) * 10) / 10,
+          });
+          break;
+        }
         queueEvent(db, sourceId, postingId, "posting_opened");
         break;
+      }
       case "reposted":
         queueEvent(db, sourceId, postingId, "posting_reposted", {
           gapDays: d.gapDays,

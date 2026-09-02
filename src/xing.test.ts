@@ -107,9 +107,10 @@ test("xing: extractPostings dereferences direct and nested __ref, and both compa
 
   assert.equal(second!.externalId, "2");
   assert.equal(second!.company, "Overridden GmbH");
-  // no activatedAt/publishedAt/createdAt on this one -- postedAt must stay null,
-  // never fall back to refreshedAt.
-  assert.equal(second!.postedAt, null);
+  // no activatedAt/publishedAt/createdAt on this one -- live XING pages carry
+  // only refreshedAt (verified 2026-09-02), so it is the fallback; without it
+  // this board could never state a publish time at all.
+  assert.equal(second!.postedAt, new Date("2026-08-02T00:00:00Z").toISOString());
 });
 
 test("xing: extractPostings throws on a missing jobSearchByQuery key", () => {

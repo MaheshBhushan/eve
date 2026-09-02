@@ -18,11 +18,15 @@
  * whose `href` is `/stellenangebote--<slug>--<jobId>-inline.html`),
  * `data-at="job-item-company-name"` and `data-at="job-item-location"`.
  * `data-at="job-item-timeago"` is a relative string ("vor 6 Tagen"), never an
- * absolute date, so `postedAt` is always null for this adapter. The page also
- * carries an inline `data-atx-onpageview-payload` attribute whose JSON gives
- * `searchResultsTotalJobCount`; that number is used only as a sanity check --
- * if it says results exist but no cards parsed, this throws rather than
- * returning an empty (and misleading) snapshot.
+ * absolute date. The real publish time lives elsewhere on the same page: the
+ * inline `window.__PRELOADED_STATE__` carries each result as
+ * `{"id":<jobId>,"title":...,"datePosted":"2026-09-02T01:54:01+02:00",...}`.
+ * `postedAt` is joined from there by job id and is null only when the state
+ * blob is missing the id, so the freshness alert can work on this board.
+ * The page also carries an inline `data-atx-onpageview-payload` attribute
+ * whose JSON gives `searchResultsTotalJobCount`; that number is used only as a
+ * sanity check -- if it says results exist but no cards parsed, this throws
+ * rather than returning an empty (and misleading) snapshot.
  */
 
 import type { Adapter, FetchResult, ParsedRef } from "./index.ts";
@@ -156,8 +160,28 @@ function totalJobCount(html: string): number | null {
 const CARD_HREF =
   /href="(\/stellenangebote--[^"]+?-(\d+)-inline\.html)"[^>]*data-at="job-item-title"/g;
 
+/**
+ * jobId -> ISO publish time, read from the preloaded-state JSON that the page
+ * ships alongside the cards. Items are flat objects whose `id` immediately
+ * precedes `title`, and whose `datePosted` follows within the same object; the
+ * regex anchors on that `"id":N,"title"` pair so a nested label id can't be
+ * mistaken for a job id, and stops at the next item's id so one item's date
+ * cannot leak onto its neighbour.
+ */
+export function extractPostedDates(html: string): Map<string, string> {
+  const dates = new Map<string, string>();
+  const re = /"id":(\d+),"title":"(?:(?!"id":\d+,"title")[\s\S])*?"datePosted":"([^"]+)"/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html))) {
+    const t = Date.parse(m[2]!);
+    if (!Number.isNaN(t)) dates.set(m[1]!, new Date(t).toISOString());
+  }
+  return dates;
+}
+
 /** Parse the fetched search page into postings, or throw on unexpected shape. */
 export function parseSearchHtml(html: string): FetchedPosting[] {
+  const postedDates = extractPostedDates(html);
   const anchors: { start: number; href: string; jobId: string }[] = [];
   let m: RegExpExecArray | null;
   CARD_HREF.lastIndex = 0;
@@ -192,8 +216,9 @@ export function parseSearchHtml(html: string): FetchedPosting[] {
       remote: null,
       department: null,
       url: `${BASE}${href}`,
-      // Cards only carry a relative "vor N Tagen" age, never a real date.
-      postedAt: null,
+      // Cards only carry a relative "vor N Tagen" age; the exact time comes
+      // from the page's preloaded state, joined by job id.
+      postedAt: postedDates.get(jobId) ?? null,
       closesAt: null,
       description: null,
     } satisfies FetchedPosting;

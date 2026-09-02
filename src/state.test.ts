@@ -24,6 +24,7 @@ import {
 } from "./db.ts";
 import { diffSnapshot } from "./diff.ts";
 import {
+  classifyOpening,
   emitClosure,
   emitDiffEvents,
   emitHighFit,
@@ -437,4 +438,61 @@ test("cosmetic churn in a title does not fork one posting into two", (t) => {
     postingKey(posting()),
     postingKey(posting({ title: "Backend Engineer (m/w/d)", externalId: "77" })),
   );
+});
+
+/* ------------------------------------------------------- opening policy --- */
+
+const POLICY = { freshPingHours: 3, alertMaxAgeHours: 24 };
+const H = 3_600_000;
+const T0 = Date.parse("2026-09-02T18:00:00Z");
+
+test("a stated publish time within the ping window is fresh", () => {
+  const c = classifyOpening({ postedAt: new Date(T0 - 2 * H).toISOString(), exact: 1 }, POLICY, T0);
+  assert.equal(c.kind, "fresh");
+  assert.equal(Math.round(c.ageHours!), 2);
+});
+
+test("a stated publish time inside the feed window is quiet", () => {
+  assert.equal(
+    classifyOpening({ postedAt: new Date(T0 - 12 * H).toISOString(), exact: 1 }, POLICY, T0).kind,
+    "quiet",
+  );
+});
+
+test("a stated publish time past the feed window is silent", () => {
+  assert.equal(
+    classifyOpening({ postedAt: new Date(T0 - 5 * 24 * H).toISOString(), exact: 1 }, POLICY, T0).kind,
+    "silent",
+  );
+});
+
+test("a guessed publish time is never fresh and never silenced", () => {
+  // first_seen is *now* on a seed poll; without this rule a fresh /watch would
+  // ping the whole back catalogue.
+  const c = classifyOpening({ postedAt: new Date(T0 - 1 * H).toISOString(), exact: 0 }, POLICY, T0);
+  assert.equal(c.kind, "quiet");
+  assert.equal(c.ageHours, null);
+});
+
+test("bare SQLite timestamps are read as UTC when classifying", () => {
+  const c = classifyOpening({ postedAt: "2026-09-02 17:30:00", exact: 1 }, POLICY, T0);
+  assert.equal(c.kind, "fresh");
+});
+
+test("a stored guess yields to a stated date on a later poll, but a fact never does", (t) => {
+  const { db, sourceId } = freshDb(t);
+  // First sighting: the board said nothing, so posted_at is our clock.
+  poll(db, sourceId, [posting({ postedAt: null })]);
+  const guessed = only(db, sourceId);
+  assert.equal(guessed.posted_at_exact, 0);
+
+  // The board now states a time (e.g. the adapter learned to read it).
+  poll(db, sourceId, [posting({ postedAt: "2026-08-30T08:00:00Z" })]);
+  const upgraded = only(db, sourceId);
+  assert.equal(upgraded.posted_at_exact, 1);
+  assert.equal(upgraded.posted_at, "2026-08-30T08:00:00Z");
+
+  // A different stated time on a still-open posting does not overwrite the first.
+  poll(db, sourceId, [posting({ postedAt: "2026-08-31T08:00:00Z" })]);
+  assert.equal(only(db, sourceId).posted_at, "2026-08-30T08:00:00Z");
 });

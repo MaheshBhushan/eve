@@ -256,8 +256,17 @@ export function upsertPosting(db: DatabaseSync, row: PostingUpsert): number {
        -- An ordinary refresh leaves the date alone, and a board that restates
        -- the original publish date on a repost simply won't look fresh, which
        -- makes this self-correcting rather than a source of false alarms.
-       posted_at    = CASE WHEN state = 'closed' THEN excluded.posted_at ELSE posted_at END,
-       posted_at_exact = CASE WHEN state = 'closed' THEN excluded.posted_at_exact ELSE posted_at_exact END,
+       -- One more case: a stored guess (our first sighting, exact = 0) yields
+       -- to a stated date the board has since given us. A guess never
+       -- overwrites a fact, and a fact never overwrites another fact.
+       posted_at    = CASE
+                        WHEN state = 'closed' THEN excluded.posted_at
+                        WHEN posted_at_exact = 0 AND excluded.posted_at_exact = 1 THEN excluded.posted_at
+                        ELSE posted_at END,
+       posted_at_exact = CASE
+                        WHEN state = 'closed' THEN excluded.posted_at_exact
+                        WHEN posted_at_exact = 0 AND excluded.posted_at_exact = 1 THEN 1
+                        ELSE posted_at_exact END,
        repost_count = repost_count + (CASE WHEN state = 'closed' THEN 1 ELSE 0 END),
        state        = 'open',
        closed_at    = NULL,
