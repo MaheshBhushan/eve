@@ -170,6 +170,8 @@ node scripts/seed-boards.ts config/boards.json --dry-run   # resolve + fetch, wr
 node scripts/seed-boards.ts config/boards.json             # register and seed
 ```
 
+`config/searches.example.json` holds the board-search side: one `werkstudent` search per city per board for LinkedIn, StepStone, XING and Indeed, plus a country-wide one that catches remote listings. Seed it the same way.
+
 `config/boards.example.json` is a **verified** starting set for the German student-role case — every entry was fetched live and its yield measured, with the ones that don't work recorded so nobody re-checks them. It needs no Discord credentials, skips already-watched boards, carries on past failures, and seeds silently: no events are queued, because seeding builds the baseline the next poll diffs against.
 
 Seeding applies the same filter the poller does, and records the same hash. That matters more than it sounds: seeding unfiltered would store thousands of irrelevant postings, send every one of them to the fit scorer, and then close them all on the next filtered poll.

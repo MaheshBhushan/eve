@@ -1,0 +1,170 @@
+{
+  "_readme": [
+    "Broad working-student searches, one per city per board. Copy to config/searches.json,",
+    "edit, then: node scripts/seed-boards.ts config/searches.json. Filters do the narrowing;",
+    "make sure every city here is also in filters.json locationAny or its results are dropped.",
+    "Indeed entries only register while Indeed is not serving a Cloudflare challenge.",
+    "LinkedIn geocodes 'deutschland' to US metros; use 'Germany' for the country-wide search."
+  ],
+  "boards": [
+    {
+      "ref": "linkedin:werkstudent@München",
+      "group": "student-search"
+    },
+    {
+      "ref": "stepstone:werkstudent@München",
+      "group": "student-search"
+    },
+    {
+      "ref": "xing:werkstudent@München",
+      "group": "student-search"
+    },
+    {
+      "ref": "indeed:werkstudent@München",
+      "group": "student-search"
+    },
+    {
+      "ref": "linkedin:werkstudent@Berlin",
+      "group": "student-search"
+    },
+    {
+      "ref": "stepstone:werkstudent@Berlin",
+      "group": "student-search"
+    },
+    {
+      "ref": "xing:werkstudent@Berlin",
+      "group": "student-search"
+    },
+    {
+      "ref": "indeed:werkstudent@Berlin",
+      "group": "student-search"
+    },
+    {
+      "ref": "linkedin:werkstudent@Stuttgart",
+      "group": "student-search"
+    },
+    {
+      "ref": "stepstone:werkstudent@Stuttgart",
+      "group": "student-search"
+    },
+    {
+      "ref": "xing:werkstudent@Stuttgart",
+      "group": "student-search"
+    },
+    {
+      "ref": "indeed:werkstudent@Stuttgart",
+      "group": "student-search"
+    },
+    {
+      "ref": "linkedin:werkstudent@Nürnberg",
+      "group": "student-search"
+    },
+    {
+      "ref": "stepstone:werkstudent@Nürnberg",
+      "group": "student-search"
+    },
+    {
+      "ref": "xing:werkstudent@Nürnberg",
+      "group": "student-search"
+    },
+    {
+      "ref": "indeed:werkstudent@Nürnberg",
+      "group": "student-search"
+    },
+    {
+      "ref": "linkedin:werkstudent@Augsburg",
+      "group": "student-search"
+    },
+    {
+      "ref": "stepstone:werkstudent@Augsburg",
+      "group": "student-search"
+    },
+    {
+      "ref": "xing:werkstudent@Augsburg",
+      "group": "student-search"
+    },
+    {
+      "ref": "indeed:werkstudent@Augsburg",
+      "group": "student-search"
+    },
+    {
+      "ref": "linkedin:werkstudent@Regensburg",
+      "group": "student-search"
+    },
+    {
+      "ref": "stepstone:werkstudent@Regensburg",
+      "group": "student-search"
+    },
+    {
+      "ref": "xing:werkstudent@Regensburg",
+      "group": "student-search"
+    },
+    {
+      "ref": "indeed:werkstudent@Regensburg",
+      "group": "student-search"
+    },
+    {
+      "ref": "linkedin:werkstudent@Ingolstadt",
+      "group": "student-search"
+    },
+    {
+      "ref": "stepstone:werkstudent@Ingolstadt",
+      "group": "student-search"
+    },
+    {
+      "ref": "xing:werkstudent@Ingolstadt",
+      "group": "student-search"
+    },
+    {
+      "ref": "indeed:werkstudent@Ingolstadt",
+      "group": "student-search"
+    },
+    {
+      "ref": "linkedin:werkstudent@Erlangen",
+      "group": "student-search"
+    },
+    {
+      "ref": "stepstone:werkstudent@Erlangen",
+      "group": "student-search"
+    },
+    {
+      "ref": "xing:werkstudent@Erlangen",
+      "group": "student-search"
+    },
+    {
+      "ref": "indeed:werkstudent@Erlangen",
+      "group": "student-search"
+    },
+    {
+      "ref": "linkedin:werkstudent@Würzburg",
+      "group": "student-search"
+    },
+    {
+      "ref": "stepstone:werkstudent@Würzburg",
+      "group": "student-search"
+    },
+    {
+      "ref": "xing:werkstudent@Würzburg",
+      "group": "student-search"
+    },
+    {
+      "ref": "indeed:werkstudent@Würzburg",
+      "group": "student-search"
+    },
+    {
+      "ref": "linkedin:werkstudent@Germany",
+      "group": "student-search",
+      "note": "country-wide; LinkedIn geocodes 'deutschland' to US metros, 'germany' works"
+    },
+    {
+      "ref": "stepstone:werkstudent@Deutschland",
+      "group": "student-search",
+      "note": "country-wide, catches remote listings"
+    },
+    {
+      "ref": "xing:werkstudent@Deutschland",
+      "group": "student-search",
+      "note": "country-wide, catches remote listings"
+    }
+  ]
+}
