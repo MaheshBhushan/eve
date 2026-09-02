@@ -45,7 +45,7 @@ One page, newest discovery first. Each card shows title, company, location, the 
 
 `first_seen` is the field that matters here. `posted_at` is whatever the board claims, and many boards only give a relative "3 days ago" or nothing at all; `first_seen` is the moment eve actually discovered the posting, which is what decides whether you were early.
 
-The dashboard binds to loopback by default (`RADAR_DASHBOARD_BIND`, `RADAR_DASHBOARD_PORT`) and has no authentication. To reach it from another machine, put a Cloudflare Tunnel in front of it (see Deployment) or expose it over your tailnet (`tailscale serve`). Never bind it to a public interface directly.
+The dashboard binds to loopback by default (`RADAR_DASHBOARD_BIND`, `RADAR_DASHBOARD_PORT`) and has no authentication. To reach it from another machine, expose it over your tailnet (`tailscale serve`) rather than binding to a public interface.
 
 ## Quickstart
 
@@ -272,23 +272,6 @@ systemctl --user enable --now eve-dashboard.service eve-poll.timer
 systemctl --user enable --now eve-bot.service     # optional, Discord alerts
 loginctl enable-linger "$USER"     # or user units die on logout
 ```
-
-### Public hostname
-
-Cloudflare Pages cannot host the dashboard: it reads a SQLite file on the machine that runs the poller. A Cloudflare Tunnel gives that local server a hostname without opening a port:
-
-```bash
-sudo pacman -S cloudflared              # or the package for your distro
-cloudflared tunnel login                # browser, once; writes ~/.cloudflared/cert.pem
-cloudflared tunnel create eve-dashboard
-cp deploy/cloudflared.example.yml ~/.cloudflared/config.yml   # fill in the tunnel id and hostname
-cloudflared tunnel route dns eve-dashboard db.example.com
-cp deploy/cloudflared-eve.service ~/.config/systemd/user/
-systemctl --user daemon-reload
-systemctl --user enable --now cloudflared-eve.service
-```
-
-A freshly created record can sit as a cached negative answer in your resolver for a while; `resolvectl flush-caches` clears it locally. The dashboard has no login, so a public hostname shows the feed to anyone who finds it. Put a Cloudflare Access policy on the hostname unless you are fine with that.
 
 The timer fires every 5 minutes. The search sources state publish times to the hour or better (LinkedIn's "3 hours ago" card text, StepStone's `datePosted` in the page's preloaded state, XING's `refreshedAt`), and the `fresh_opening` ping exists to beat the applicant queue, so the interval is the ceiling on how early that ping can land. A full cycle over ~70 sources takes about two minutes.
 
