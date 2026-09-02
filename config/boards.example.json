@@ -1,9 +1,12 @@
 {
   "_readme": [
-    "Munich / Bavaria working-student and internship sources.",
-    "Every entry was fetched live and verified to resolve before being listed.",
+    "Southern-Germany working-student, internship and thesis sources.",
+    "Bavaria + Baden-Wuerttemberg + Hesse/Rhineland-Palatinate/Saarland.",
+    "Every entry was fetched live and verified to resolve, and to return that",
+    "company's real postings, before being listed. Slugs that resolve but serve",
+    "a different company or Personio demo data are listed under _rejected.",
     "Copy to config/boards.json, edit, then: node scripts/seed-boards.ts config/boards.json",
-    "measured: 2026-07-30 - 26 sources, 367 matching postings"
+    "measured: 2026-08-07"
   ],
   "boards": [
     {
@@ -35,6 +38,82 @@
       "group": "bavaria-search"
     },
     {
+      "ref": "arbeitsagentur:werkstudent@stuttgart+25",
+      "group": "bw-search",
+      "note": "Mercedes-Benz, Porsche, Bosch, MAHLE, MHP, Duerr, Kaercher, STIHL"
+    },
+    {
+      "ref": "arbeitsagentur:praktikum@stuttgart+25",
+      "group": "bw-search"
+    },
+    {
+      "ref": "arbeitsagentur:werkstudent@karlsruhe+25",
+      "group": "bw-search",
+      "note": "SAP Walldorf, Bosch, INIT, PTV, 1&1/IONOS, dm, grenke, Michelin"
+    },
+    {
+      "ref": "arbeitsagentur:werkstudent@mannheim+25",
+      "group": "bw-search"
+    },
+    {
+      "ref": "arbeitsagentur:werkstudent@heidelberg+25",
+      "group": "bw-search",
+      "note": "Heidelberger Druckmaschinen, Heidelberg Materials, Roche"
+    },
+    {
+      "ref": "arbeitsagentur:werkstudent@ulm+25",
+      "group": "bw-search",
+      "note": "John Deere, Liebherr, Wieland, Nokia"
+    },
+    {
+      "ref": "arbeitsagentur:werkstudent@friedrichshafen+25",
+      "group": "bw-search",
+      "note": "ZF, Rolls-Royce Power Systems, Liebherr Aerospace"
+    },
+    {
+      "ref": "arbeitsagentur:werkstudent@freiburg+25",
+      "group": "bw-search",
+      "note": "SICK, Testo, Haufe, TRUMPF Umkreis"
+    },
+    {
+      "ref": "arbeitsagentur:werkstudent@frankfurt am main+25",
+      "group": "hesse-search",
+      "note": "Lufthansa, Deutsche Boerse, DB Schenker, Fresenius, Samsung"
+    },
+    {
+      "ref": "arbeitsagentur:praktikum@frankfurt am main+25",
+      "group": "hesse-search"
+    },
+    {
+      "ref": "arbeitsagentur:werkstudent@darmstadt+25",
+      "group": "hesse-search",
+      "note": "Merck, ESA/ESOC, Software AG"
+    },
+    {
+      "ref": "arbeitsagentur:werkstudent@mainz+25",
+      "group": "hesse-search",
+      "note": "SCHOTT, BioNTech"
+    },
+    {
+      "ref": "arbeitsagentur:werkstudent@ludwigshafen am rhein+25",
+      "group": "hesse-search",
+      "note": "BASF, KSB Frankenthal"
+    },
+    {
+      "ref": "arbeitsagentur:werkstudent@wiesbaden+25",
+      "group": "hesse-search"
+    },
+    {
+      "ref": "arbeitsagentur:werkstudent@saarbrücken+25",
+      "group": "hesse-search",
+      "note": "Saarland; ZF Saarbruecken, Ford, DFKI"
+    },
+    {
+      "ref": "smartrecruiters:BoschGroup",
+      "group": "corporate",
+      "note": "Bosch + Bosch Rexroth; ~4.7k open reqs, the largest board here"
+    },
+    {
       "ref": "smartrecruiters:CHECK24",
       "group": "scaleup",
       "note": "comparison marketplace, large eng org - highest company-board yield"
@@ -45,6 +124,21 @@
       "note": "automotive software incl. Regensburg"
     },
     {
+      "ref": "smartrecruiters:baywaag",
+      "group": "corporate",
+      "note": "BayWa AG, Munich; agriculture/energy/building materials"
+    },
+    {
+      "ref": "smartrecruiters:NielsenIQ",
+      "group": "corporate",
+      "note": "NIQ, successor to GfK Nuremberg"
+    },
+    {
+      "ref": "smartrecruiters:HaufeGroup",
+      "group": "scaleup",
+      "note": "Haufe / Lexware, Freiburg"
+    },
+    {
       "ref": "greenhouse:celonis",
       "group": "ai-scaleup",
       "note": "process mining"
@@ -53,6 +147,21 @@
       "ref": "greenhouse:helsing",
       "group": "ai-scaleup",
       "note": "defence AI - live, no student roles at time of measuring"
+    },
+    {
+      "ref": "greenhouse:flix",
+      "group": "scaleup",
+      "note": "Flix SE, Munich"
+    },
+    {
+      "ref": "greenhouse:isaraerospace",
+      "group": "deeptech",
+      "note": "Ottobrunn launch vehicles"
+    },
+    {
+      "ref": "greenhouse:ionos",
+      "group": "corporate",
+      "note": "IONOS - the United Internet / 1&1 group board, Karlsruhe + Montabaur"
     },
     {
       "ref": "ashby:tacto",
@@ -108,6 +217,11 @@
       "note": "behavioural AI"
     },
     {
+      "ref": "personio:temedica",
+      "group": "healthtech",
+      "note": "Munich real-world health data"
+    },
+    {
       "ref": "personio:konux",
       "group": "deeptech",
       "note": "rail predictive maintenance - board live, currently empty"
@@ -128,28 +242,63 @@
       "note": "cobot arms - board live, currently empty"
     }
   ],
+  "_rejected": [
+    "Slugs that DO return HTTP 200 but must not be watched. Each was opened and",
+    "read; they are listed so nobody re-adds them from a green probe alone:",
+    "",
+    "personio:amazon, personio:webasto, personio:porsche-digital,",
+    "personio:personio-gmbh -- Personio demo tenants. All serve the same three",
+    "  fixture rows ('SEO Marketing Manager', 'Social Media (Werkstudent)',",
+    "  'Initiativbewerbung'), not the company's real openings.",
+    "smartrecruiters:robertbosch -- Bosch sandbox tenant, 6 rows, titles like",
+    "  'test consent new'. The real board is smartrecruiters:BoschGroup.",
+    "smartrecruiters:haufe-lexware -- 3 stale rows; real board is HaufeGroup.",
+    "ashby:eon -- Eon, a US laser-comms company in Culver City, not E.ON SE.",
+    "ashby:vector -- a US remote-first startup, not Vector Informatik.",
+    "ashby:quantum -- a UK London/Maidstone company, not Quantum-Systems.",
+    "lever:zeiss -- abandoned test board, rows named '323232' in San Francisco.",
+    "greenhouse:mhp -- MHP AS of Cheyenne WY, not MHP (a Porsche company)."
+  ],
   "_not_reachable": [
     "From the supplied list, these could NOT be reached by any adapter and are",
     "not included. Most run on Workday or SAP SuccessFactors, which have no",
-    "public unauthenticated board API, or on fully custom career sites:",
+    "public unauthenticated board API, or on fully custom career sites. Every",
+    "slug variant of the company name was probed against Greenhouse, Lever,",
+    "Ashby, SmartRecruiters and Personio before giving up.",
     "",
-    "Workday:      Siemens, Siemens Healthineers, Infineon, adidas, PUMA,",
-    "              Airbus, Allianz Technology, NIQ/GfK",
-    "SuccessFactors: DATEV, Audi, MAN, MTU, Rohde & Schwarz, Munich Re,",
-    "              Giesecke+Devrient, Wacker, Schaeffler, Vitesco, Krones,",
-    "              Interhyp",
-    "Custom:       BMW, Diehl, Fraunhofer IIS, Fraunhofer IKS, Stylight, Dalus",
-    "Not found on the guessed ATS: Agile Robots, NavVis and Kinexon (not on",
-    "              SmartRecruiters), Flix, IDnow, Scalable Capital, Westwing,",
-    "              Alasco, Fernride, ARX Robotics, Isar Aerospace, Marvel Fusion,",
-    "              DeepDrive, Motius, Alexander Thamm, itestra, Consol, Zuehlke,",
-    "              inovex, Cluster Reply",
+    "Bavaria:      Siemens, Siemens Healthineers, Siemens Energy, Infineon,",
+    "              Allianz, Munich Re, Airbus, MTU Aero Engines, MAN Truck & Bus,",
+    "              Audi, BMW, Rohde & Schwarz, TUEV SUED, BayWa r.e., Linde,",
+    "              Wacker Chemie, Personio, Amazon Munich, Google Munich,",
+    "              Microsoft Germany, Apple Germany, ProSiebenSat.1, DATEV,",
+    "              adidas, PUMA, Schaeffler, Diehl, NUERNBERGER, KUKA,",
+    "              MAN Energy Solutions, RENK, Krones, Webasto, Knorr-Bremse,",
+    "              E.ON, Bayernwerk, LEW, TeamViewer, Qwello",
+    "Baden-Wuerttemberg: Mercedes-Benz Group, Daimler Truck, Porsche,",
+    "              Bosch Rexroth (covered by BoschGroup above), SAP, ZEISS,",
+    "              TRUMPF, Festo, Vector Informatik, MAHLE, Duerr, Kaercher,",
+    "              STIHL, MHP, EnBW, Bechtle, United Internet and 1&1 (only the",
+    "              IONOS board above is public), dm-drogerie markt, Michelin,",
+    "              Heidelberger Druckmaschinen, Heidelberg Materials, Roche,",
+    "              John Deere, PTV Group, INIT, grenke, ZF Friedrichshafen,",
+    "              Rolls-Royce Power Systems, Liebherr, SICK, Testo, Aesculap,",
+    "              HENSOLDT",
+    "Hesse/RP/Saar: Lufthansa Group, Deutsche Boerse Group, KION Group, Merck,",
+    "              Fresenius, Procter & Gamble, Sanofi, Opel, BASF, SCHOTT, KSB,",
+    "              Bilfinger, DB Schenker, DHL Group",
     "",
     "Most of these still surface through the Bundesagentur searches above, which",
-    "index employers regardless of which ATS they run.",
+    "index employers regardless of which ATS they run - that is why the search",
+    "list was widened to Stuttgart, Karlsruhe, Mannheim, Heidelberg, Ulm,",
+    "Friedrichshafen, Freiburg, Frankfurt, Darmstadt, Mainz, Ludwigshafen,",
+    "Wiesbaden and Saarbruecken along with the new companies.",
     "",
-    "Aggregators (startup.jobs, YC, Wellfound, BayStartUP, Munich Startup,",
-    "GermanTechJobs) have no public JSON API and would need the opt-in browser",
-    "adapter, which is disabled by default and has never been live-tested."
+    "Job portals (Workingstudentjobs.de, LinkedIn, StepStone, EnglishJobs,",
+    "Hochschuljobboerse, KIT job board, Indeed) are search aggregators with no",
+    "public JSON API. They would need the opt-in browser adapter, which is",
+    "disabled by default and has never been live-tested; and a search page is a",
+    "ranked slice, not a snapshot, so absence from it is not a close event. The",
+    "Bundesagentur adapter is the supported aggregator - it is a real API and",
+    "already indexes most of what those portals resell."
   ]
 }
