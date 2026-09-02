@@ -272,12 +272,12 @@
     {
       "ref": "workday:roche.wd3/roche-ext",
       "group": "workday",
-      "note": "Roche (incl. Penzberg); 1195 open reqs, global board"
+      "note": "Roche (incl. Penzberg); ~1195 open reqs, global board (live count drifts)"
     },
     {
       "ref": "workday:ag.wd3/Airbus",
       "group": "workday",
-      "note": "Airbus; 2000 open reqs (Workday search caps the reported total at 2000), global board"
+      "note": "Airbus; ~2000 open reqs (Workday search caps/drifts near this figure), global board"
     },
     {
       "ref": "workday:datev.wd3/Datev_Careers",
