@@ -19,8 +19,11 @@ export function openDb(path: string): DatabaseSync {
   // writes rows and queues events, the bot reads the queue and stamps
   // deliveries. WAL lets those overlap; busy_timeout absorbs the moment they
   // collide instead of throwing SQLITE_BUSY at whichever process loses.
-  db.exec("PRAGMA journal_mode = WAL");
+  // busy_timeout first: switching journal mode takes a lock of its own, and
+  // three processes opening this file within the same second (a timer-fired
+  // poll plus a bot and dashboard restart) hit that lock without it.
   db.exec("PRAGMA busy_timeout = 5000");
+  db.exec("PRAGMA journal_mode = WAL");
   // Postings and events hang off sources by FK; without this pragma SQLite
   // ignores the ON DELETE CASCADE and removing a source orphans its rows.
   db.exec("PRAGMA foreign_keys = ON");
