@@ -259,6 +259,8 @@ export const xing: Adapter & { readonly complete: false } = {
   /** See module header and browser.ts: a ranked search page, never complete. */
   complete: false,
 
+  domain: () => "www.xing.com",
+
   parse(input: string): ParsedRef | null {
     const s = input.trim();
     if (!s) return null;

@@ -1,3 +1,4 @@
+import { classifyRole, ROLE_FILTER_VERSION } from "./roles.ts";
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -50,6 +51,29 @@ function migrate(db: DatabaseSync): void {
   if (!cols.has("filter_hash")) {
     db.exec("ALTER TABLE sources ADD COLUMN filter_hash TEXT");
   }
+  if (!cols.has("next_attempt_at")) {
+    db.exec("ALTER TABLE sources ADD COLUMN next_attempt_at TEXT");
+  }
+  if (!cols.has("cursor")) {
+    db.exec("ALTER TABLE sources ADD COLUMN cursor TEXT");
+  }
+
+  const postingCols = new Set(db.prepare("PRAGMA table_info(postings)").all().map(c => c.name));
+  for (const [name, type] of Object.entries({roleFamily: 'TEXT', rolePriority: 'INTEGER', matchedSignals: 'TEXT', secondaryRoleFamilies: 'TEXT', roleVersion: 'INTEGER', fit_confidence: 'REAL', fit_eligible: 'INTEGER', fit_version: 'TEXT', fit_details: 'TEXT', fit_retry_after: 'TEXT', fit_notified_at: 'TEXT'})) {
+    if (!postingCols.has(name)) db.exec(`ALTER TABLE postings ADD COLUMN ${name} ${type}`);
+  }
+  const stale = db.prepare("SELECT id, title, description FROM postings WHERE roleVersion IS NULL OR roleVersion != ?").all(ROLE_FILTER_VERSION);
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    for (const row of stale) updateRole(db, Number(row.id), String(row.title), row.description as string | null);
+    db.exec('COMMIT');
+  } catch (error) { db.exec('ROLLBACK'); throw error; }
+}
+
+function updateRole(db: DatabaseSync, id: number, title: string, description: string | null): void {
+  const role = classifyRole(title, description);
+  db.prepare('UPDATE postings SET roleFamily = ?, rolePriority = ?, matchedSignals = ?, secondaryRoleFamilies = ?, roleVersion = ? WHERE id = ?')
+    .run(role?.roleFamily ?? null, role?.rolePriority ?? null, JSON.stringify(role?.matchedSignals ?? []), JSON.stringify(role?.secondaryRoleFamilies ?? []), ROLE_FILTER_VERSION, id);
 }
 
 /* -------------------------------------------------------------- sources --- */
@@ -150,19 +174,26 @@ export function setFilterHash(
  * A poll that came back with a usable snapshot. `last_poll` is diagnostic, not
  * a cursor — there is nothing to resume from on a snapshot source. Resetting
  * fail_count here is what un-mutes a board that recovered on its own.
+ *
+ * `cursor` is tri-state: `undefined` leaves the stored value alone (a 304, or
+ * an adapter that does not paginate), `null` clears it (a finished walk), and a
+ * string persists the adapter's opaque state.
  */
 export function markPolled(
   db: DatabaseSync,
   sourceId: number,
   etag: string | null,
+  cursor: string | null | undefined = undefined,
 ): void {
   db.prepare(
     `UPDATE sources
         SET etag = COALESCE(?, etag),
             last_poll = datetime('now'),
+            next_attempt_at = NULL,
+            cursor = CASE WHEN ? = 1 THEN ? ELSE cursor END,
             fail_count = 0
       WHERE id = ?`,
-  ).run(etag, sourceId);
+  ).run(etag, cursor === undefined ? 0 : 1, cursor ?? null, sourceId);
 }
 
 /** Returns the new consecutive-failure count so the caller can mute at maxFailures. */
@@ -174,6 +205,49 @@ export function markPollFailed(db: DatabaseSync, sourceId: number): number {
     .prepare("SELECT fail_count FROM sources WHERE id = ?")
     .get(sourceId) as { fail_count: number } | undefined;
   return row?.fail_count ?? 0;
+}
+
+/**
+ * Push a source's next attempt out to `until` (SQLite `datetime('now')`
+ * format). `markPollFailed` counts failures; this is what actually stops the
+ * poller from contacting a source it just failed on, without touching the
+ * diagnostic `last_poll`.
+ */
+export function deferSource(db: DatabaseSync, sourceId: number, until: string): void {
+  db.prepare("UPDATE sources SET next_attempt_at = ? WHERE id = ?").run(until, sourceId);
+}
+
+/* -------------------------------------------------------- domain gate --- */
+
+/**
+ * A blocked host stays blocked for a while, and that is a fact about the host
+ * rather than about any one query URL. Persisted so a restart mid-cooldown
+ * does not walk straight back into the 429.
+ */
+export function getDomainCooldown(
+  db: DatabaseSync,
+  domain: string,
+): { nextAttemptAt: string; reason: string | null } | null {
+  const row = db
+    .prepare("SELECT next_attempt_at, reason FROM domain_state WHERE domain = ?")
+    .get(domain) as { next_attempt_at: string; reason: string | null } | undefined;
+  return row ? { nextAttemptAt: row.next_attempt_at, reason: row.reason } : null;
+}
+
+export function setDomainCooldown(
+  db: DatabaseSync,
+  domain: string,
+  until: string,
+  reason: string | null,
+): void {
+  db.prepare(
+    `INSERT INTO domain_state (domain, next_attempt_at, reason, updated_at)
+     VALUES (?, ?, ?, datetime('now'))
+     ON CONFLICT (domain) DO UPDATE SET
+       next_attempt_at = excluded.next_attempt_at,
+       reason = excluded.reason,
+       updated_at = datetime('now')`,
+  ).run(domain, until, reason);
 }
 
 /* ------------------------------------------------------------- postings --- */
@@ -192,8 +266,8 @@ export function listOpenPostings(
   sourceId?: number,
 ): PostingRow[] {
   const sql = sourceId
-    ? "SELECT * FROM postings WHERE state = 'open' AND source_id = ? ORDER BY posted_at DESC, id DESC"
-    : "SELECT * FROM postings WHERE state = 'open' ORDER BY posted_at DESC, id DESC";
+    ? "SELECT * FROM postings WHERE state = 'open' AND (roleFamily IS NOT NULL OR fit_eligible = 1) AND source_id = ? ORDER BY posted_at DESC, id DESC"
+    : "SELECT * FROM postings WHERE state = 'open' AND (roleFamily IS NOT NULL OR fit_eligible = 1) ORDER BY posted_at DESC, id DESC";
   const stmt = db.prepare(sql);
   return (sourceId ? stmt.all(sourceId) : stmt.all()) as unknown as PostingRow[];
 }
@@ -247,6 +321,10 @@ export function upsertPosting(db: DatabaseSync, row: PostingUpsert): number {
        department   = excluded.department,
        url          = excluded.url,
        closes_at    = excluded.closes_at,
+       fit_version = CASE WHEN title IS NOT excluded.title OR location IS NOT excluded.location
+         OR remote IS NOT excluded.remote OR description IS NOT COALESCE(excluded.description, description)
+         THEN NULL ELSE fit_version END,
+       fit_retry_after = CASE WHEN description IS NOT COALESCE(excluded.description, description) THEN NULL ELSE fit_retry_after END,
        description  = COALESCE(excluded.description, description),
        last_seen    = datetime('now'),
        -- Only a genuine repost re-dates the posting. A company that reopens a
@@ -293,6 +371,8 @@ export function upsertPosting(db: DatabaseSync, row: PostingUpsert): number {
   const r = db
     .prepare("SELECT id FROM postings WHERE source_id = ? AND key = ?")
     .get(row.source_id, row.key) as { id: number };
+  const stored = db.prepare('SELECT title, description FROM postings WHERE id = ?').get(r.id)!;
+  updateRole(db, r.id, stored.title as string, stored.description as string | null);
   return r.id;
 }
 
@@ -319,7 +399,7 @@ export function setFit(
   reason: string,
 ): void {
   db.prepare(
-    `UPDATE postings SET fit_score = ?, fit_reason = ?, fit_scored_at = datetime('now')
+    `UPDATE postings SET fit_score = ?, fit_reason = ?, fit_scored_at = datetime('now'), fit_confidence = NULL, fit_eligible = NULL, fit_version = NULL
       WHERE id = ?`,
   ).run(score, reason, postingId);
 }
@@ -375,19 +455,105 @@ export function markDeadlineNotified(db: DatabaseSync, postingId: number): void 
 /**
  * The scorer's work queue. Descriptionless rows are skipped because there is
  * nothing to score them from; the limit is the per-cycle spend cap.
+ *
+ * The profile (Jev) branch splits the budget three ways instead of taking the
+ * newest rows. Newest-first is the right *default* — a fresh posting is the one
+ * worth applying to — but under continuous arrivals it is also a starvation
+ * schedule: every cycle brings newer rows, the oldest unscored rows are always
+ * at the back, and a job can sit unscored forever while the budget is spent
+ * ahead of it. The split (roughly 70% fresh / 20% oldest / 10% due retries) is
+ * a proposed policy, not a proven optimum; its job is to guarantee the tail
+ * makes progress while keeping the fresh bias.
  */
 export function listUnscoredPostings(
   db: DatabaseSync,
   limit = 25,
+  version?: string,
 ): PostingRow[] {
+  if (version) return fairQueue(db, limit, version);
   return db
     .prepare(
       `SELECT * FROM postings
-        WHERE state = 'open' AND fit_score IS NULL AND description IS NOT NULL
-        ORDER BY posted_at DESC, id DESC
+        WHERE state = 'open' AND roleFamily IS NOT NULL AND fit_score IS NULL AND description IS NOT NULL
+        ORDER BY rolePriority ASC, posted_at DESC, id DESC
         LIMIT ?`,
     )
     .all(limit) as unknown as PostingRow[];
+}
+
+/** Work is eligible while its version is stale and it is not in a retry wait. */
+const ELIGIBLE_SQL = `state = 'open'
+  AND (fit_version IS NULL OR fit_version != ?)
+  AND (fit_retry_after IS NULL OR fit_retry_after <= datetime('now'))`;
+
+/**
+ * Queue depth and the age of the oldest eligible row. Logged every cycle so a
+ * growing tail is visible in the journal rather than only discoverable by
+ * querying SQLite. A budget that cannot keep up shows up here long before
+ * anyone notices a stale match.
+ */
+export function scoringQueueStats(
+  db: DatabaseSync,
+  version?: string,
+): { pending: number; oldest: string | null } {
+  const row = version
+    ? (db
+        .prepare(`SELECT COUNT(*) AS pending, MIN(first_seen) AS oldest FROM postings WHERE ${ELIGIBLE_SQL}`)
+        .get(version) as { pending: number; oldest: string | null } | undefined)
+    : (db
+        .prepare(
+          `SELECT COUNT(*) AS pending, MIN(first_seen) AS oldest FROM postings
+            WHERE state = 'open' AND roleFamily IS NOT NULL AND fit_score IS NULL AND description IS NOT NULL`,
+        )
+        .get() as { pending: number; oldest: string | null } | undefined);
+  return { pending: Number(row?.pending ?? 0), oldest: row?.oldest ?? null };
+}
+
+function fairQueue(db: DatabaseSync, limit: number, version: string): PostingRow[] {
+  const picked = new Map<number, PostingRow>();
+  const add = (rows: PostingRow[]): void => {
+    for (const row of rows) if (!picked.has(row.id)) picked.set(row.id, row);
+  };
+
+  // Reserve at least one slot per bucket so a budget of 1..9 still rotates
+  // rather than collapsing back to newest-only.
+  const retrySlots = Math.max(1, Math.round(limit * 0.1));
+  const oldestSlots = Math.max(1, Math.round(limit * 0.2));
+  const freshSlots = Math.max(1, limit - retrySlots - oldestSlots);
+
+  // Fresh first: when the budget runs out mid-batch, the rows already committed
+  // are the ones most likely to matter.
+  add(
+    db
+      .prepare(`SELECT * FROM postings WHERE ${ELIGIBLE_SQL} ORDER BY posted_at DESC, id DESC LIMIT ?`)
+      .all(version, freshSlots) as unknown as PostingRow[],
+  );
+  add(
+    db
+      .prepare(
+        `SELECT * FROM postings WHERE ${ELIGIBLE_SQL} AND fit_retry_after IS NULL
+          ORDER BY first_seen ASC, id ASC LIMIT ?`,
+      )
+      .all(version, oldestSlots) as unknown as PostingRow[],
+  );
+  add(
+    db
+      .prepare(
+        `SELECT * FROM postings WHERE ${ELIGIBLE_SQL} AND fit_retry_after IS NOT NULL
+          ORDER BY fit_retry_after ASC, id ASC LIMIT ?`,
+      )
+      .all(version, retrySlots) as unknown as PostingRow[],
+  );
+
+  // Deduplication can leave a bucket collision; fill the remainder newest-first.
+  if (picked.size < limit) {
+    add(
+      db
+        .prepare(`SELECT * FROM postings WHERE ${ELIGIBLE_SQL} ORDER BY posted_at DESC, id DESC LIMIT ?`)
+        .all(version, limit) as unknown as PostingRow[],
+    );
+  }
+  return [...picked.values()].slice(0, limit);
 }
 
 /* --------------------------------------------------------------- events --- */
@@ -404,10 +570,10 @@ export function queueEvent(
   ).run(sourceId, postingId, type, JSON.stringify(payload));
 }
 
-export function pendingEvents(db: DatabaseSync, limit = 100): EventRow[] {
+export function pendingEvents(db: DatabaseSync, limit = 100, includeUnclassified = false): EventRow[] {
   return db
-    .prepare("SELECT * FROM events WHERE delivered_at IS NULL ORDER BY id LIMIT ?")
-    .all(limit) as unknown as EventRow[];
+    .prepare("SELECT * FROM events WHERE delivered_at IS NULL AND posting_id IN (SELECT id FROM postings WHERE ? OR roleFamily IS NOT NULL) ORDER BY id LIMIT ?")
+    .all(Number(includeUnclassified), limit) as unknown as EventRow[];
 }
 
 /** Stamped only after Discord confirms — see the note on events.delivered_at. */
@@ -417,4 +583,13 @@ export function markDelivered(db: DatabaseSync, ids: number[]): void {
     "UPDATE events SET delivered_at = datetime('now') WHERE id = ?",
   );
   for (const id of ids) stmt.run(id);
+}
+
+export function setJevFit(db: DatabaseSync, id: number, fit: import("./jev.ts").JevResult, version: string): void {
+  db.prepare(`UPDATE postings SET fit_score=?, fit_reason=?, fit_confidence=?, fit_eligible=?, fit_details=?,
+    fit_version=?, fit_retry_after=NULL, fit_scored_at=datetime('now') WHERE id=?`)
+    .run(fit.score, fit.reason, fit.confidence, Number(fit.eligible), fit.details, version, id);
+}
+export function deferFit(db: DatabaseSync, id: number): void {
+  db.prepare("UPDATE postings SET fit_retry_after=datetime('now', '+6 hours') WHERE id=?").run(id);
 }

@@ -203,6 +203,9 @@ export const linkedin: Adapter & { readonly complete: false } = {
   /** Partial source: see the module header and browser.ts. */
   complete: false,
 
+  /** Twelve watched queries are twelve sources but one throttled host. */
+  domain: () => "www.linkedin.com",
+
   parse,
 
   async fetch(ident: string, _etag: string | null): Promise<FetchResult> {

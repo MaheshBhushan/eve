@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS sources (
   id       INTEGER PRIMARY KEY,
   -- greenhouse | lever | ashby | personio | smartrecruiters | workday | successfactors | arbeitsagentur
   --   | stepstone | indeed | xing | linkedin | browser
+  --   | remotive | weworkremotely | remoteok | workingnomads | himalayas | arbeitnow
   kind     TEXT NOT NULL,
   -- Board token / company slug / encoded search query. Meaning is adapter-local.
   ident    TEXT NOT NULL,
@@ -21,8 +22,18 @@ CREATE TABLE IF NOT EXISTS sources (
   -- Wall-clock of the last successful fetch. Diagnostic only, never a cursor:
   -- a snapshot source has nothing to resume from.
   last_poll TEXT,
-  -- Consecutive failed polls. A board that 404s forever gets muted, not retried
-  -- into the ground -- companies do delete their job boards.
+  -- Earliest time the poller may retry after a failure. Persisted separately
+  -- from last_poll because many query sources share one throttled domain: a
+  -- per-source timestamp alone lets twelve LinkedIn searches each discover the
+  -- same 429 in the same cycle.
+  next_attempt_at TEXT,
+  -- Opaque resumable state for paginated discovery feeds. Written by the
+  -- adapter, never interpreted by the poller; NULL means "start over".
+  cursor   TEXT,
+  -- Consecutive failed polls. At `maxFailures` the source is marked muted and
+  -- probed only on the capped backoff (up to 6h) instead of every cycle --
+  -- companies do delete their job boards, but a temporary outage must not
+  -- become a permanent mute that only a human can undo.
   fail_count INTEGER NOT NULL DEFAULT 0,
   -- Hash of the filter spec in force when this source was last polled.
   --
@@ -104,3 +115,15 @@ CREATE TABLE IF NOT EXISTS events (
 );
 
 CREATE INDEX IF NOT EXISTS events_pending_idx ON events (delivered_at, id);
+
+-- Domain-level backoff, shared by every source whose adapter reports that
+-- domain. A 429 is a property of the host, not of the query that happened to
+-- receive it: pausing only that one source just moves the problem to the next
+-- query ten seconds later. Until `next_attempt_at` passes, the poller skips
+-- every source on this host without a request; other domains keep polling.
+CREATE TABLE IF NOT EXISTS domain_state (
+  domain          TEXT PRIMARY KEY,
+  next_attempt_at TEXT NOT NULL,
+  reason          TEXT,
+  updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);

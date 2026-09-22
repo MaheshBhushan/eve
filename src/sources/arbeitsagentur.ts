@@ -381,6 +381,7 @@ export const arbeitsagentur: Adapter = {
   kind: KIND,
   // `complete` intentionally left unset (i.e. true): fetch throws rather than
   // ever returning a partial snapshot. See the module header.
+  domain: () => "rest.arbeitsagentur.de",
   parse,
   fetch: fetchSearch,
 };

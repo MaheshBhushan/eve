@@ -230,6 +230,8 @@ export const stepstone: Adapter & { readonly complete: false } = {
 
   complete: false,
 
+  domain: () => "www.stepstone.de",
+
   parse(input: string): ParsedRef | null {
     const s = input.trim();
     if (!s) return null;

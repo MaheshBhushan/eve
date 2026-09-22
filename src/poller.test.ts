@@ -92,7 +92,7 @@ function board(n: number): FetchedPosting[] {
   return Array.from({ length: n }, (_, i) =>
     posting({
       externalId: `10${i}`,
-      title: `Engineer Level ${i}`,
+      title: `Backend Engineer Level ${i}`,
       url: `https://boards.example/acme/10${i}`,
     }),
   );
@@ -160,10 +160,10 @@ test("a new posting is pinged, fed or silenced by its stated age", async (t) => 
   const h = 3_600_000;
   const iso = (agoMs: number) => new Date(Date.now() - agoMs).toISOString();
   const snapshot = [
-    posting({ externalId: "1", title: "Fresh", postedAt: iso(1 * h) }),
-    posting({ externalId: "2", title: "Recent", postedAt: iso(10 * h) }),
-    posting({ externalId: "3", title: "Stale", postedAt: iso(72 * h) }),
-    posting({ externalId: "4", title: "Undated", postedAt: null }),
+    posting({ externalId: "1", title: "Backend Engineer Fresh", postedAt: iso(1 * h) }),
+    posting({ externalId: "2", title: "Backend Engineer Recent", postedAt: iso(10 * h) }),
+    posting({ externalId: "3", title: "Backend Engineer Stale", postedAt: iso(72 * h) }),
+    posting({ externalId: "4", title: "Backend Engineer Undated", postedAt: null }),
   ];
   const policy = cfg({ freshPingHours: 3, alertMaxAgeHours: 24 });
   const report = await pollSource(db, policy, s, fakeAdapter(snapshot));
@@ -174,10 +174,10 @@ test("a new posting is pinged, fed or silenced by its stated age", async (t) => 
   const byTitle = new Map(
     events.map((e) => [getPosting(db, e.posting_id)!.title, e.type]),
   );
-  assert.equal(byTitle.get("Fresh"), "fresh_opening");
-  assert.equal(byTitle.get("Recent"), "posting_opened");
-  assert.equal(byTitle.has("Stale"), false, "a week-old drift-in is not news");
-  assert.equal(byTitle.get("Undated"), "posting_opened", "unknown age stays in the feed");
+  assert.equal(byTitle.get("Backend Engineer Fresh"), "fresh_opening");
+  assert.equal(byTitle.get("Backend Engineer Recent"), "posting_opened");
+  assert.equal(byTitle.has("Backend Engineer Stale"), false, "a week-old drift-in is not news");
+  assert.equal(byTitle.get("Backend Engineer Undated"), "posting_opened", "unknown age stays in the feed");
 });
 
 test("a 304 touches nothing but the poll timestamp", async (t) => {
@@ -337,10 +337,13 @@ test("an incomplete source still reports new postings", async (t) => {
 
 /* --------------------------------------------------------------- cycle --- */
 
-test("a source at maxFailures is skipped", async (t) => {
+test("a source at maxFailures is muted until its backoff, then probed again", async (t) => {
   const db = freshDb(t);
   const s = src(db);
   for (let i = 0; i < 5; i++) markPollFailed(db, s.id);
+  // The mute is a capped backoff, not a permanent skip: while a probe is
+  // pending the source is not contacted...
+  db.prepare("UPDATE sources SET next_attempt_at = datetime('now', '+1 hour') WHERE id = ?").run(s.id);
 
   let fetched = false;
   const adapter = fakeAdapter(board(3), {
@@ -352,7 +355,16 @@ test("a source at maxFailures is skipped", async (t) => {
   const report = await pollSource(db, cfg({ maxFailures: 5 }), reload(db, s), adapter);
 
   assert.equal(report.skipped, true);
-  assert.equal(fetched, false, "a muted board is not even contacted");
+  assert.match(report.error ?? "", /muted after 5/);
+  assert.equal(fetched, false, "a muted board is not contacted while its probe is pending");
+
+  // ...and once it expires, the source is tried again and can recover on its
+  // own, which is what stops a temporary outage from becoming a permanent mute.
+  db.prepare("UPDATE sources SET next_attempt_at = datetime('now', '-1 minute') WHERE id = ?").run(s.id);
+  const retry = await pollSource(db, cfg({ maxFailures: 5 }), reload(db, s), adapter);
+  assert.equal(retry.skipped, false);
+  assert.equal(fetched, true);
+  assert.equal(reload(db, s).fail_count, 0);
 });
 
 test("one throwing source does not stop the next one polling", async (t) => {
@@ -420,4 +432,23 @@ test("parseResult: null on anything unusable", () => {
   assert.equal(parseResult('{"score": "high", "reason": "x"}'), null, "strings would coerce to 0");
   assert.equal(parseResult('{"reason": "no score field"}'), null);
   assert.equal(parseResult('{"score": null, "reason": "x"}'), null);
+});
+
+test('target filtering prevents unrelated and senior rows from reaching storage or events', async (t) => {
+  const db = freshDb(t);
+  const s = src(db);
+  const input = [posting(), posting({externalId:'2', title:'Student Marketing Assistant'}), posting({externalId:'3', title:'Senior AI Engineer'})];
+  await pollSource(db, cfg(), s, fakeAdapter(input));
+  assert.equal(listPostingsForSource(db, s.id).length, 1);
+  assert.equal(listPostingsForSource(db, s.id)[0]!.title, 'Backend Engineer');
+});
+
+test('a changed role filter bypasses the cached board ETag', async (t) => {
+  const db = freshDb(t);
+  const s = src(db);
+  let requested: string | null | undefined;
+  await pollSource(db, cfg(), {...s, etag:'old-cache'}, fakeAdapter([posting()], {
+    fetch: async (_ident, etag) => { requested = etag; return {postings:[posting()], etag:'new-cache'}; },
+  }));
+  assert.equal(requested, null);
 });

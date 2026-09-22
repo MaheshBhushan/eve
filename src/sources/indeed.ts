@@ -187,6 +187,8 @@ export const indeed: Adapter & { readonly complete: false } = {
 
   complete: false,
 
+  domain: () => "de.indeed.com",
+
   parse(input: string): ParsedRef | null {
     const s = input.trim();
     if (!s) return null;
