@@ -17,6 +17,7 @@ import {
   applyFilter,
   filterHash,
   loadFilters,
+  looksRemote,
   matches,
   normalise,
   specFor,
@@ -32,7 +33,7 @@ import type { FetchedPosting, SourceRow } from "./types.ts";
 function posting(over: Partial<FetchedPosting> = {}): FetchedPosting {
   return {
     externalId: "1001",
-    title: "Werkstudent Data Engineering (m/w/d)",
+    title: "Werkstudent Backend Engineer (m/w/d)",
     company: "Acme GmbH",
     location: "Berlin, Deutschland",
     remote: false,
@@ -53,10 +54,10 @@ function tmpDir(t: { after(fn: () => void): void }): string {
 
 /* ------------------------------------------------------------ the fields --- */
 
-test("an empty spec passes everything through", () => {
+test("an empty spec still applies role targeting", () => {
   const board = [posting(), posting({ title: "CFO", location: "Tokyo" })];
-  assert.equal(applyFilter(board, {}).length, 2);
-  assert.equal(applyFilter(board, { titleAny: [], locationAny: [] }).length, 2);
+  assert.equal(applyFilter(board, {}).length, 1);
+  assert.equal(applyFilter(board, { titleAny: [], locationAny: [] }).length, 1);
 });
 
 test("titleAny keeps only matching titles", () => {
@@ -134,7 +135,7 @@ test("werkstudent matches gendered and punctuated forms", () => {
 
 test("praktikum catches German compounds", () => {
   const spec: FilterSpec = { titleAny: ["praktikum"] };
-  for (const title of ["Pflichtpraktikum Controlling", "Praktikum Marketing", "Auslandspraktikum"]) {
+  for (const title of ["Pflichtpraktikum Controlling", "Praktikum Python Developer", "Auslandspraktikum"]) {
     assert.equal(matches(posting({ title }), spec), true, title);
   }
 });
@@ -173,9 +174,9 @@ test("the shipped example config keeps students and drops senior lookalikes", ()
   const cfg = loadFilters(join(import.meta.dirname, "..", "config", "filters.example.json"));
   const spec = specFor(cfg, "greenhouse", "acme");
   const keep = [
-    posting({ title: "Werkstudent:in Machine Learning", location: "München" }),
-    posting({ title: "Pflichtpraktikum Data Analytics", location: "Berlin, Germany" }),
-    posting({ title: "Masterand Robotics", location: "Stuttgart" }),
+    posting({ title: "Werkstudent:in LLM Engineer", location: "München" }),
+    posting({ title: "Pflichtpraktikum Python Developer", location: "Berlin, Germany" }),
+    posting({ title: "Masterand Industrial AI", location: "Stuttgart" }),
     posting({ title: "Intern, Platform Engineering", location: "Köln" }),
     posting({ title: "Working Student Backend", location: "Remote", remote: true }),
   ];
@@ -185,8 +186,8 @@ test("the shipped example config keeps students and drops senior lookalikes", ()
     posting({ title: "Head of Internal Audit", location: "Berlin" }),
     posting({ title: "Werkstudent Vertrieb", location: "Wien, Österreich" }),
   ];
-  for (const p of keep) assert.equal(matches(p, spec), true, p.title);
-  for (const p of drop) assert.equal(matches(p, spec), false, p.title);
+  for (const p of keep) assert.equal(applyFilter([p], spec).length, 1, p.title);
+  for (const p of drop) assert.equal(applyFilter([p], spec).length, 0, p.title);
 });
 
 /* ---------------------------------------------------------------- remote --- */
@@ -211,6 +212,27 @@ test("remote: include exempts a remote posting from the location list", () => {
   assert.equal(matches(posting({ remote: true, location: null }), spec), true);
   assert.equal(matches(posting({ remote: false, location: "Remote" }), spec), false);
   assert.equal(matches(posting({ remote: false }), spec), true);
+});
+
+test("a null remote flag falls back to the location text", () => {
+  const spec: FilterSpec = { locationAny: ["deutschland", "india"], remote: "include" };
+  assert.equal(matches(posting({ remote: null, location: "Remote" }), spec), true);
+  assert.equal(matches(posting({ remote: null, location: "Remote - Worldwide" }), spec), true);
+  assert.equal(matches(posting({ remote: null, location: "Unterföhring, deutschlandweit remote" }), spec), true);
+  assert.equal(matches(posting({ remote: null, location: "Tokyo, Japan" }), spec), false);
+  // The board's explicit `false` beats the word in the city field.
+  assert.equal(matches(posting({ remote: false, location: "Remote" }), spec), false);
+  // ...and locationNone still vetoes a remote role pinned to another country.
+  const pinned: FilterSpec = { ...spec, locationNone: ["|us|", "united states"] };
+  assert.equal(matches(posting({ remote: null, location: "Remote, US, Texas" }), pinned), false);
+  assert.equal(matches(posting({ remote: null, location: "Remote" }), pinned), true);
+});
+
+test("looksRemote is word-anchored", () => {
+  assert.equal(looksRemote("Remote"), true);
+  assert.equal(looksRemote("Global Payments Ltd HQ"), true);
+  assert.equal(looksRemote("Remoteville"), false);
+  assert.equal(looksRemote(null), false);
 });
 
 test("with remote unset the location list is taken literally", () => {
@@ -348,8 +370,36 @@ test("a malformed filter file throws and names the file", (t) => {
 
 test("the shipped example config loads", () => {
   const cfg = loadFilters(join(import.meta.dirname, "..", "config", "filters.example.json"));
-  assert.ok(cfg.default?.titleAny?.includes("werkstudent"));
+  assert.equal(cfg.default?.remote, "include");
+  assert.ok((cfg.default?.locationAny?.length ?? 0) > 100);
+  assert.ok((cfg.default?.locationNone?.length ?? 0) > 10);
   assert.ok(cfg.perSource && Object.keys(cfg.perSource).length > 0);
+});
+
+test("the shipped example config targets Germany, India, the UK and unpinned remote", () => {
+  const cfg = loadFilters(join(import.meta.dirname, "..", "config", "filters.example.json"));
+  const spec = specFor(cfg, "linkedin", "Generative AI@Worldwide");
+  const keep = [
+    "Ingolstadt",
+    "Stuttgart, BW, DE",
+    "Bengaluru, Karnataka, India",
+    "London Area, United Kingdom",
+    "Remote",
+    "Remote - Worldwide",
+    "Remote, Germany, Duesseldorf",
+    "Remote, EU",
+  ];
+  const drop = [
+    "Madrid, Spain",
+    "San Francisco, CA",
+    "New York, US, New York",
+    "Remote, US, Texas",
+    "Singapore",
+    "Wien, Österreich",
+    "Wroclaw, Poland",
+  ];
+  for (const l of keep) assert.equal(matches(posting({ location: l, remote: null }), spec), true, l);
+  for (const l of drop) assert.equal(matches(posting({ location: l, remote: null }), spec), false, l);
 });
 
 /* ================================================== poller: re-baselining === */
@@ -407,9 +457,9 @@ function fakeAdapter(board: () => FetchedPosting[]): Adapter {
 }
 
 const BOARD: FetchedPosting[] = [
-  posting({ externalId: "1", title: "Werkstudent Data Engineering", url: "u1" }),
-  posting({ externalId: "2", title: "Praktikum Marketing", url: "u2" }),
-  posting({ externalId: "3", title: "Werkstudent Robotics", url: "u3" }),
+  posting({ externalId: "1", title: "Werkstudent Backend Engineer", url: "u1" }),
+  posting({ externalId: "2", title: "Praktikum Python Developer", url: "u2" }),
+  posting({ externalId: "3", title: "Werkstudent AI Engineer", url: "u3" }),
 ];
 
 function closureTypes(db: DatabaseSync): string[] {
@@ -480,7 +530,7 @@ test("a steady-state cycle with an unchanged filter closes normally", async (t) 
   assert.deepEqual(closureTypes(db), ["posting_closed"]);
   const closed = listPostingsForSource(db, source.id).filter((r) => r.state === "closed");
   assert.equal(closed.length, 1);
-  assert.equal(closed[0]!.title, "Werkstudent Robotics");
+  assert.equal(closed[0]!.title, "Werkstudent AI Engineer");
 });
 
 test("filtered-out postings are never stored, so they cost no scoring budget", async (t) => {
@@ -491,7 +541,7 @@ test("filtered-out postings are never stored, so they cost no scoring budget", a
   assert.equal(report.filtered, 2);
   const rows = listPostingsForSource(db, source.id);
   assert.equal(rows.length, 1);
-  assert.equal(rows[0]!.title, "Praktikum Marketing");
+  assert.equal(rows[0]!.title, "Praktikum Python Developer");
 });
 
 test("a re-baseline cycle is not refused by the mass-delist guard", async (t) => {
@@ -501,9 +551,9 @@ test("a re-baseline cycle is not refused by the mass-delist guard", async (t) =>
   const db = freshDb(t);
   const source = addSource(db, "greenhouse", "acme", "Acme") as SourceRow;
   const big = Array.from({ length: 10 }, (_, i) =>
-    posting({ externalId: `${i}`, title: `Werkstudent Team ${i}`, url: `u${i}` }),
+    posting({ externalId: `${i}`, title: `Werkstudent Backend Engineer Team ${i}`, url: `u${i}` }),
   );
-  big.push(posting({ externalId: "x", title: "Praktikum Marketing", url: "ux" }));
+  big.push(posting({ externalId: "x", title: "Praktikum Python Developer", url: "ux" }));
   const adapter = fakeAdapter(() => big);
 
   await pollSource(db, cfg(), source, adapter, {});

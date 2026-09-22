@@ -1,5 +1,9 @@
 /** Single-channel deployment: one DISCORD_CHANNEL_ID for every watched source. */
 export interface Config {
+  fitProvider?: "claude" | "typesafe";
+  fitConfidence?: number;
+  matchesOnly?: boolean;
+  fitConcurrency?: number;
   dbPath: string;
   discordToken: string;
   discordChannelId: string;
@@ -50,8 +54,10 @@ export interface Config {
   /** Ping this many days before a stated application deadline. */
   deadlineDays: number;
   /**
-   * Consecutive poll failures before a source is muted. Companies do delete
-   * their boards, and retrying a dead one forever is just log noise.
+   * Consecutive poll failures before a source is marked muted. A muted source
+   * is not abandoned: it is probed on the capped backoff (up to 6h), so a
+   * temporary outage recovers on its own while a genuinely dead board costs a
+   * few requests a day instead of a request every cycle.
    */
   maxFailures: number;
   /**
@@ -66,7 +72,7 @@ export interface Config {
   /* --------------------------------------------------------- filter --- */
   /**
    * Path to the JSON filter config. Unset -- or a path that does not exist --
-   * means no filtering, so every posting on every watched board is tracked.
+   * means no extra constraints; mandatory role targeting still applies.
    * A file that exists but is malformed is a hard error rather than a silent
    * fallback; see `loadFilters`. `config/filters.example.json` is the template.
    */
@@ -94,7 +100,17 @@ function req(name: string): string {
 }
 
 export function loadConfig(): Config {
+  const fitProvider = process.env.RADAR_FIT_PROVIDER ?? "claude";
+  if (fitProvider !== "claude" && fitProvider !== "typesafe") throw new Error("RADAR_FIT_PROVIDER must be claude or typesafe");
+  const fitConfidence = Number(process.env.RADAR_FIT_CONFIDENCE ?? 0.8);
+  if (!Number.isFinite(fitConfidence) || fitConfidence < 0 || fitConfidence > 1) throw new Error("RADAR_FIT_CONFIDENCE must be between 0 and 1");
+  const fitConcurrency = Number(process.env.RADAR_FIT_CONCURRENCY ?? 3);
+  if (!Number.isInteger(fitConcurrency) || fitConcurrency < 1 || fitConcurrency > 10) throw new Error("RADAR_FIT_CONCURRENCY must be an integer from 1 to 10");
+  const matchesOnly = process.env.RADAR_MATCHES_ONLY === "true" || fitProvider === "typesafe";
+  if (matchesOnly && fitProvider !== "typesafe") throw new Error("Matches-only mode requires typesafe scoring with confidence");
+  if (fitProvider === "typesafe" && (!process.env.TYPESAFE_API_KEY || !process.env.RADAR_PROFILE)) throw new Error("TypeSafe scoring requires TYPESAFE_API_KEY and RADAR_PROFILE");
   return {
+    fitProvider, fitConfidence, fitConcurrency, matchesOnly,
     dbPath: process.env.RADAR_DB ?? "eve.db",
     discordToken: req("DISCORD_TOKEN"),
     discordChannelId: req("DISCORD_CHANNEL_ID"),
@@ -102,7 +118,7 @@ export function loadConfig(): Config {
     pingTarget: process.env.RADAR_PING ? `<@${process.env.RADAR_PING}>` : "@here",
 
     profilePath: process.env.RADAR_PROFILE ?? null,
-    fitModel: process.env.RADAR_FIT_MODEL ?? "sonnet",
+    fitModel: fitProvider === "typesafe" ? (process.env.RADAR_JEV_MODEL ?? "jev-1.13.0") : (process.env.RADAR_FIT_MODEL ?? "sonnet"),
     fitThreshold: Number(process.env.RADAR_FIT_THRESHOLD ?? 75),
     freshHours: Number(process.env.RADAR_FRESH_HOURS ?? 48),
     fitBudget: Number(process.env.RADAR_FIT_BUDGET ?? 25),

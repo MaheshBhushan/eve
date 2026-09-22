@@ -1,170 +1,104 @@
 {
   "_readme": [
-    "Broad working-student searches, one per city per board. Copy to config/searches.json,",
-    "edit, then: node scripts/seed-boards.ts config/searches.json. Filters do the narrowing;",
-    "make sure every city here is also in filters.json locationAny or its results are dropped.",
-    "Indeed entries only register while Indeed is not serving a Cloudflare challenge.",
-    "LinkedIn geocodes 'deutschland' to US metros; use 'Germany' for the country-wide search."
+    "Focused searches: India, United Kingdom and Germany, plus Worldwide for remote roles. config/filters.json then keeps only postings located in Germany, India or the UK, or remote roles not pinned to another country -- so searches in other countries are wasted fetches and were removed.",
+    "Existing per-adapter page caps remain unchanged."
   ],
   "boards": [
     {
-      "ref": "linkedin:werkstudent@München",
-      "group": "student-search"
+      "ref": "linkedin:Generative AI@India",
+      "group": "ai"
     },
     {
-      "ref": "stepstone:werkstudent@München",
-      "group": "student-search"
+      "ref": "linkedin:Backend Engineer@India",
+      "group": "backend"
     },
     {
-      "ref": "xing:werkstudent@München",
-      "group": "student-search"
+      "ref": "linkedin:Developer Tools@India",
+      "group": "devtools"
     },
     {
-      "ref": "indeed:werkstudent@München",
-      "group": "student-search"
+      "ref": "linkedin:Generative AI@United Kingdom",
+      "group": "ai"
     },
     {
-      "ref": "linkedin:werkstudent@Berlin",
-      "group": "student-search"
+      "ref": "linkedin:Backend Engineer@United Kingdom",
+      "group": "backend"
     },
     {
-      "ref": "stepstone:werkstudent@Berlin",
-      "group": "student-search"
+      "ref": "linkedin:Developer Tools@United Kingdom",
+      "group": "devtools"
     },
     {
-      "ref": "xing:werkstudent@Berlin",
-      "group": "student-search"
+      "ref": "linkedin:Generative AI@Worldwide",
+      "group": "ai"
     },
     {
-      "ref": "indeed:werkstudent@Berlin",
-      "group": "student-search"
+      "ref": "linkedin:Digital Twin@Worldwide",
+      "group": "industrial"
     },
     {
-      "ref": "linkedin:werkstudent@Stuttgart",
-      "group": "student-search"
+      "ref": "linkedin:ML Inference@Worldwide",
+      "group": "systems"
     },
     {
-      "ref": "stepstone:werkstudent@Stuttgart",
-      "group": "student-search"
+      "ref": "stepstone:Generative AI@Deutschland",
+      "group": "ai"
     },
     {
-      "ref": "xing:werkstudent@Stuttgart",
-      "group": "student-search"
+      "ref": "stepstone:Werkstudent Python@Deutschland",
+      "group": "backend"
     },
     {
-      "ref": "indeed:werkstudent@Stuttgart",
-      "group": "student-search"
+      "ref": "stepstone:Developer Tools@Deutschland",
+      "group": "devtools"
     },
     {
-      "ref": "linkedin:werkstudent@Nürnberg",
-      "group": "student-search"
+      "ref": "stepstone:Digitalisierung Produktion@Deutschland",
+      "group": "industrial"
     },
     {
-      "ref": "stepstone:werkstudent@Nürnberg",
-      "group": "student-search"
+      "ref": "stepstone:ML Systems@Deutschland",
+      "group": "systems"
     },
     {
-      "ref": "xing:werkstudent@Nürnberg",
-      "group": "student-search"
+      "ref": "indeed:Generative AI@Deutschland",
+      "group": "ai"
     },
     {
-      "ref": "indeed:werkstudent@Nürnberg",
-      "group": "student-search"
+      "ref": "indeed:Werkstudent Python@Deutschland",
+      "group": "backend"
     },
     {
-      "ref": "linkedin:werkstudent@Augsburg",
-      "group": "student-search"
+      "ref": "indeed:Developer Tools@Deutschland",
+      "group": "devtools"
     },
     {
-      "ref": "stepstone:werkstudent@Augsburg",
-      "group": "student-search"
+      "ref": "indeed:Digitalisierung Produktion@Deutschland",
+      "group": "industrial"
     },
     {
-      "ref": "xing:werkstudent@Augsburg",
-      "group": "student-search"
+      "ref": "indeed:ML Systems@Deutschland",
+      "group": "systems"
     },
     {
-      "ref": "indeed:werkstudent@Augsburg",
-      "group": "student-search"
+      "ref": "xing:Generative AI@Deutschland",
+      "group": "ai"
     },
     {
-      "ref": "linkedin:werkstudent@Regensburg",
-      "group": "student-search"
+      "ref": "xing:Werkstudent Python@Deutschland",
+      "group": "backend"
     },
     {
-      "ref": "stepstone:werkstudent@Regensburg",
-      "group": "student-search"
+      "ref": "xing:Developer Tools@Deutschland",
+      "group": "devtools"
     },
     {
-      "ref": "xing:werkstudent@Regensburg",
-      "group": "student-search"
+      "ref": "xing:Digitalisierung Produktion@Deutschland",
+      "group": "industrial"
     },
     {
-      "ref": "indeed:werkstudent@Regensburg",
-      "group": "student-search"
-    },
-    {
-      "ref": "linkedin:werkstudent@Ingolstadt",
-      "group": "student-search"
-    },
-    {
-      "ref": "stepstone:werkstudent@Ingolstadt",
-      "group": "student-search"
-    },
-    {
-      "ref": "xing:werkstudent@Ingolstadt",
-      "group": "student-search"
-    },
-    {
-      "ref": "indeed:werkstudent@Ingolstadt",
-      "group": "student-search"
-    },
-    {
-      "ref": "linkedin:werkstudent@Erlangen",
-      "group": "student-search"
-    },
-    {
-      "ref": "stepstone:werkstudent@Erlangen",
-      "group": "student-search"
-    },
-    {
-      "ref": "xing:werkstudent@Erlangen",
-      "group": "student-search"
-    },
-    {
-      "ref": "indeed:werkstudent@Erlangen",
-      "group": "student-search"
-    },
-    {
-      "ref": "linkedin:werkstudent@Würzburg",
-      "group": "student-search"
-    },
-    {
-      "ref": "stepstone:werkstudent@Würzburg",
-      "group": "student-search"
-    },
-    {
-      "ref": "xing:werkstudent@Würzburg",
-      "group": "student-search"
-    },
-    {
-      "ref": "indeed:werkstudent@Würzburg",
-      "group": "student-search"
-    },
-    {
-      "ref": "linkedin:werkstudent@Germany",
-      "group": "student-search",
-      "note": "country-wide; LinkedIn geocodes 'deutschland' to US metros, 'germany' works"
-    },
-    {
-      "ref": "stepstone:werkstudent@Deutschland",
-      "group": "student-search",
-      "note": "country-wide, catches remote listings"
-    },
-    {
-      "ref": "xing:werkstudent@Deutschland",
-      "group": "student-search",
-      "note": "country-wide, catches remote listings"
+      "ref": "xing:ML Systems@Deutschland",
+      "group": "systems"
     }
   ]
 }

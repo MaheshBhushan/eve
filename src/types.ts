@@ -1,3 +1,4 @@
+import type { RoleFamily } from "./roles.ts";
 export type PostingState = "open" | "closed";
 /**
  * Every source the registry can serve. Split by what they are, because the
@@ -12,6 +13,12 @@ export type PostingState = "open" | "closed";
  *    never claim completeness.
  */
 export type SourceKind =
+  | "remotive"
+  | "weworkremotely"
+  | "remoteok"
+  | "workingnomads"
+  | "himalayas"
+  | "arbeitnow"
   | "greenhouse"
   | "lever"
   | "ashby"
@@ -43,6 +50,18 @@ export interface SourceRow {
   label: string;
   etag: string | null;
   last_poll: string | null;
+  /**
+   * Earliest time the poller may retry this source. Set on a failed poll with a
+   * bounded backoff, cleared on success; `last_poll` alone cannot express
+   * "don't touch this for a while" because it is written by successes too.
+   */
+  next_attempt_at: string | null;
+  /**
+   * Opaque resumable state for paginated discovery feeds (Himalayas' cursor
+   * plus watermark). The adapter that wrote it is the only thing that
+   * interprets it; `null` means "start over".
+   */
+  cursor: string | null;
   fail_count: number;
   added_at: string;
 }
@@ -68,6 +87,18 @@ export interface PostingRow {
   closed_at: string | null;
   repost_count: number;
   description: string | null;
+  roleFamily?: RoleFamily | null;
+  rolePriority?: number | null;
+  /** JSON arrays persisted alongside the primary classification. */
+  matchedSignals?: string;
+  secondaryRoleFamilies?: string;
+  roleVersion?: number;
+  fit_confidence?: number | null;
+  fit_eligible?: number | null;
+  fit_version?: string | null;
+  fit_details?: string | null;
+  fit_retry_after?: string | null;
+  fit_notified_at?: string | null;
   fit_score: number | null;
   fit_reason: string | null;
   fit_scored_at: string | null;

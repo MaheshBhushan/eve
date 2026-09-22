@@ -26,6 +26,8 @@ import {
 } from "./db.ts";
 import { drain } from "./delivery.ts";
 import { applyFilter, filterHash, loadFilters, specFor } from "./filter.ts";
+import { jevContext, scoreJev } from "./jev.ts";
+import { setJevFit } from "./db.ts";
 import { scoreFit } from "./fit.ts";
 import { postingKey } from "./key.ts";
 import { digestEmbed, postingEmbed, trunc, type DigestRow } from "./render.ts";
@@ -302,6 +304,13 @@ async function onFit(i: ChatInputCommandInteraction, db: DatabaseSync, cfg: Conf
   // scoreFit shells out to the claude CLI and can take up to its own 90s
   // timeout; the interaction was deferred on receipt, and a deferred reply is
   // good for 15 minutes, so this has ample room even on a slow model.
+  if (cfg.fitProvider === "typesafe") {
+    const context = await jevContext(cfg);
+    const result = context && process.env.TYPESAFE_API_KEY ? await scoreJev(posting, context, process.env.TYPESAFE_API_KEY) : null;
+    if (!result || !context) return i.editReply(`Couldn't score #${id} — try again later.`);
+    setJevFit(db, id, result, context.version);
+    return i.editReply(`Fit for #${id}: **${result.score}/100**, confidence **${Math.round(result.confidence * 100)}%** — ${result.reason}`);
+  }
   const result = await scoreFit(posting, cfg.profilePath, cfg.fitModel);
   if (!result) return i.editReply(`Couldn't score #${id} — see the bot logs.`);
 

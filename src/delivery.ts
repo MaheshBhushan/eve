@@ -1,3 +1,5 @@
+import { isMatch, jevContext, allowedByFilters } from "./jev.ts";
+import { loadFilters } from "./filter.ts";
 import type { DatabaseSync } from "node:sqlite";
 import type { TextChannel } from "discord.js";
 import type { Config } from "./config.ts";
@@ -27,7 +29,24 @@ export async function drain(
   channel: TextChannel,
   cfg: Config,
 ): Promise<number> {
-  const events = pendingEvents(db, 200);
+  let events = pendingEvents(db, 200, cfg.matchesOnly);
+  if (cfg.matchesOnly) {
+    const filters = loadFilters(cfg.filtersPath);
+    const currentSources = new Map(listSources(db).map(source => [source.id, source]));
+    const context = await jevContext(cfg);
+    if (!context) return 0; // A broken profile must not leak unfiltered alerts.
+    const suppressed: number[] = [];
+    events = events.filter(event => {
+      const posting = getPosting(db, event.posting_id);
+      // Match discovery has one notification path. User-claimed lifecycle alerts survive.
+      const source = currentSources.get(event.source_id);
+      const personal = posting?.claimed_by && ["vanished_while_claimed", "deadline", "stale"].includes(event.type);
+      const send = personal || (event.type === "high_fit" && posting && source && allowedByFilters(posting, source, filters) && isMatch(posting, cfg, context.version));
+      if (!send) suppressed.push(event.id);
+      return Boolean(send);
+    });
+    if (suppressed.length) db.prepare(`DELETE FROM events WHERE id IN (${suppressed.map(() => "?").join(",")})`).run(...suppressed);
+  }
   if (events.length === 0) return 0;
 
   const sources = new Map(listSources(db).map((s) => [s.id, s]));
@@ -52,6 +71,7 @@ export async function drain(
         allowedMentions: { parse: ["users", "everyone"] },
       });
       done.push(ev.id);
+      if (cfg.matchesOnly && ev.type === "high_fit") db.prepare("UPDATE postings SET fit_notified_at=datetime('now') WHERE key=?").run(posting.key);
     } catch (e) {
       console.error(`[deliver] alert ${ev.id} failed:`, e);
     }

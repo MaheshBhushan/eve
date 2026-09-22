@@ -1,13 +1,8 @@
 {
   "_readme": [
-    "Role targeting (roles.ts) is mandatory and runs on every source before storage. This file adds location targeting on top.",
-    "Where: Germany, India and the United Kingdom, by country / state / city term, in German and English spellings.",
-    "Remote: `remote: include` lets a remote posting skip the location list. A posting counts as remote when the board flags it,",
-    "or -- when the board has no flag -- when its location text says remote / anywhere / worldwide / home office (see looksRemote in filter.ts).",
-    "locationNone vetoes remote roles pinned to another country or time zone (`Remote, US, Texas`), so only truly location-free remote roles survive.",
-    "Europe / EU / EMEA / DACH remote roles are kept because they are workable from Germany.",
-    "Matching is normalised substring; |term| is whole-word (see filter.ts). Country codes and short words are anchored so `de` never matches `Dresden`.",
-    "Edit lists, do not rename keys. A changed spec re-baselines every source once (one poll cycle with no closures)."
+    "Profile-driven discovery: existing geography and remote exclusions are retained.",
+    "Unknown role titles reach Jev; existing seniority, experience and language rules still apply.",
+    "Role families remain priorities supplied to Jev, not mandatory title keywords."
   ],
   "default": {
     "locationAny": [
@@ -425,7 +420,8 @@
       "est timezone",
       "pst timezone"
     ],
-    "remote": "include"
+    "remote": "include",
+    "targeting": "profile"
   },
   "perSource": {
     "arbeitsagentur:*": {

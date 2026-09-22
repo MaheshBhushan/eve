@@ -1,3 +1,4 @@
+import { roleLabels } from "./roles.ts";
 import { createServer } from "node:http";
 import { loadConfig } from "./config.ts";
 import { openDb } from "./db.ts";
@@ -20,14 +21,14 @@ interface DashRow {
 
 const QUERY = `
   SELECT p.id, p.title, p.company, p.location, p.url, p.first_seen,
-         p.posted_at, p.posted_at_exact, s.kind, s.label
+         p.posted_at, p.posted_at_exact, p.roleFamily, p.rolePriority, p.matchedSignals, s.kind, s.label
     FROM postings p JOIN sources s ON s.id = p.source_id
-   WHERE p.state = 'open'
-   ORDER BY p.first_seen DESC
+   WHERE p.state = 'open' AND (p.roleFamily IS NOT NULL OR p.fit_eligible = 1) AND (? IS NULL OR p.roleFamily = ?)
+   ORDER BY p.rolePriority ASC, p.first_seen DESC
    LIMIT 300`;
 
-function listPostings(): DashRow[] {
-  return db.prepare(QUERY).all() as unknown as DashRow[];
+function listPostings(family: string | null = null): DashRow[] {
+  return db.prepare(QUERY).all(family, family) as unknown as DashRow[];
 }
 
 function watermark(): string {
@@ -39,7 +40,7 @@ function watermark(): string {
 
 function page(): string {
   const json = JSON.stringify(listPostings()).replace(/</g, "\\u003c");
-  return PAGE_TEMPLATE.split("__INITIAL__").join(json);
+  return PAGE_TEMPLATE.split("__INITIAL__").join(json).split("__ROLES__").join(JSON.stringify(roleLabels));
 }
 
 const PAGE_TEMPLATE = `<!doctype html>
@@ -62,9 +63,14 @@ const PAGE_TEMPLATE = `<!doctype html>
 </style></head>
 <body>
 <header><h1>LIVE JOBS</h1><span id="updated">Updated 0 sec ago</span></header>
+<select id="family" aria-label="Role family"><option value="">All role families</option></select>
 <div id="list">Loading…</div>
 <script>
 let lastFetch = Date.now();
+const labels = __ROLES__;
+const family = document.getElementById('family');
+Object.entries(labels).forEach(([value, label]) => family.add(new Option(label, value)));
+family.onchange = refresh;
 
 function relTime(iso) {
   const s = Math.max(0, Math.floor((Date.now() - new Date(iso + "Z").getTime()) / 1000));
@@ -75,6 +81,7 @@ function relTime(iso) {
 }
 
 function render(rows) {
+  rows = rows.filter(r => !family.value || r.roleFamily === family.value);
   const list = document.getElementById("list");
   if (rows.length === 0) { list.textContent = "No open postings."; return; }
   const now = Date.now();
@@ -85,6 +92,7 @@ function render(rows) {
       '<a href="' + r.url + '" target="_blank" rel="noopener">' + r.title + '</a>' +
       '<div class="meta">' + r.company + (r.location ? ' · ' + r.location : '') + '</div>' +
       '<div class="badges">' +
+        '<span class="badge">' + (labels[r.roleFamily] || 'Profile candidate') + '</span>' +
         '<span class="badge source">' + r.kind + '</span>' +
         '<span class="badge">' + r.label + '</span>' +
         (isNew ? '<span class="badge new">NEW</span>' : '') +
@@ -95,7 +103,7 @@ function render(rows) {
 }
 
 function refresh() {
-  fetch("/api/postings").then(function (r) { return r.json(); }).then(function (rows) {
+  fetch("/api/postings" + (family.value ? "?family=" + encodeURIComponent(family.value) : "")).then(function (r) { return r.json(); }).then(function (rows) {
     render(rows);
     lastFetch = Date.now();
   });
@@ -120,9 +128,10 @@ const server = createServer((req, res) => {
     res.end(page());
     return;
   }
-  if (req.url === "/api/postings") {
+  const requestUrl = new URL(req.url ?? "/", "http://localhost");
+  if (requestUrl.pathname === "/api/postings") {
     res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify(listPostings()));
+    res.end(JSON.stringify(listPostings(requestUrl.searchParams.get("family"))));
     return;
   }
   if (req.url === "/events") {

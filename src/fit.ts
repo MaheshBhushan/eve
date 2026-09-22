@@ -71,7 +71,7 @@ export async function scoreFit(
  * context, into a log line, into a crash dump. The rule is that the prompt
  * carries capability and eligibility, never contact details.
  */
-async function loadProfile(path: string): Promise<string | null> {
+export async function loadProfile(path: string, maxLength = MAX_PROFILE): Promise<string | null> {
   let parsed: unknown;
   try {
     parsed = JSON.parse(await readFile(path, "utf8"));
@@ -90,7 +90,8 @@ async function loadProfile(path: string): Promise<string | null> {
     console.warn(`[fit] profile at ${path} has no scorable sections`);
     return null;
   }
-  return JSON.stringify(kept, null, 1).slice(0, MAX_PROFILE);
+  const text = JSON.stringify(kept, null, 1);
+  return text.length <= maxLength ? text : null;
 }
 
 /* --------------------------------------------------------------- prompt --- */

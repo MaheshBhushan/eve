@@ -1,0 +1,19 @@
+{
+  "boards": [
+    {
+      "ref": "remotive:all"
+    },
+    {
+      "ref": "linkedin:software@Germany"
+    },
+    {
+      "ref": "linkedin:software@India"
+    },
+    {
+      "ref": "linkedin:software@United Kingdom"
+    },
+    {
+      "ref": "linkedin:software@Worldwide"
+    }
+  ]
+}

@@ -171,7 +171,9 @@ export function alertEmbed(
         .setDescription(
           `${p.company}${p.location ? ` · ${p.location}` : ""}\n` +
             `${p.fit_reason ? `${p.fit_reason}\n` : ""}` +
-            `Posted ${hours}h ago — still fresh, apply now rather than queue it. \`/claim ${p.id}\` to mark it yours.`,
+            (payload.profileMatch
+              ? `Profile match · confidence ${Math.round(Number(payload.confidence) * 100)}%. \`/claim ${p.id}\` to mark it yours.`
+              : `Posted ${hours}h ago — still fresh, apply now rather than queue it. \`/claim ${p.id}\` to mark it yours.`),
         );
     }
     case "deadline": {

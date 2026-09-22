@@ -1,3 +1,4 @@
+import { classifyRole, passesRoleRules, ROLE_FILTER_VERSION } from "./roles.ts";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import type { FetchedPosting } from "./types.ts";
@@ -14,14 +15,13 @@ import type { FetchedPosting } from "./types.ts";
  * display preference, it is part of the system's notion of what exists. See
  * the re-baseline rule in poller.ts for the consequence.
  *
- * Nothing here is German-specific. The vocabulary lives entirely in JSON
- * (config/filters.example.json ships the Werkstudent/Praktikum default), so
- * changing target roles, cities or countries is an edit to a config file, never
- * a code change. That generality is the requirement; the German setup is just
- * what it ships with.
+ * Optional JSON constraints supplement the mandatory five-family classifier
+ * in roles.ts. Neither a missing file nor a source override disables targeting.
  */
 
 export interface FilterSpec {
+  /** Profile mode keeps unknown titles for semantic scoring; existing hard rules still apply. */
+  targeting?: "roles" | "profile";
   /** Posting matches if its title contains ANY of these. Empty/absent = no title requirement. */
   titleAny?: string[];
   /** Rejected if its title contains ANY of these. Applied after titleAny. */
@@ -138,6 +138,37 @@ function required(terms: string[] | undefined): boolean {
 
 const DAY_MS = 86_400_000;
 
+/**
+ * Words a board uses in the *location* field to say "no fixed office".
+ *
+ * Most adapters cannot see a remote flag (LinkedIn, Indeed, StepStone, Xing,
+ * Greenhouse, Workday all hand back `remote: null`), and the boards behind them
+ * state remoteness where they state everything else: in the location string,
+ * as `Remote`, `Remote, Germany, Duesseldorf` or `Unterföhring, deutschlandweit
+ * remote`. Reading `null` as "not remote" would drop exactly the location-less
+ * worldwide roles a remote-friendly owner wants, so `null` falls back to this
+ * vocabulary. An explicit `false` from the board is believed over the text:
+ * the board knows, and "Remote" in a city field of a non-remote job does occur.
+ */
+const REMOTE_WORDS = [
+  "|remote|",
+  "|remote first|",
+  "|fully remote|",
+  "|anywhere|",
+  "|worldwide|",
+  "|global|",
+  "|distributed|",
+  "|home office|",
+  "|homeoffice|",
+  "|work from home|",
+  "|wfh|",
+  "|telecommute|",
+];
+
+export function looksRemote(location: string | null): boolean {
+  return containsAny(location, REMOTE_WORDS);
+}
+
 export function matches(p: FetchedPosting, spec: FilterSpec): boolean {
   // titleAny first, titleNone second, so an exclusion always beats an
   // inclusion: "Senior Internal Auditor" can match `intern|` and still be
@@ -153,7 +184,7 @@ export function matches(p: FetchedPosting, spec: FilterSpec): boolean {
   // entirely. A fully remote German role is frequently listed as just "Remote"
   // with no city at all, so a locationAny of German cities would drop exactly
   // the postings a remote-friendly owner most wants.
-  const isRemote = p.remote === true;
+  const isRemote = p.remote === true || (p.remote === null && looksRemote(p.location));
   if (spec.remote === "exclude" && isRemote) return false;
   if (spec.remote === "only" && !isRemote) return false;
 
@@ -185,7 +216,8 @@ export function applyFilter(
   postings: FetchedPosting[],
   spec: FilterSpec,
 ): FetchedPosting[] {
-  return postings.filter((p) => matches(p, spec));
+  return postings.filter((p) => matches(p, spec) && (spec.targeting === "profile"
+    ? passesRoleRules(p.title, p.description) : classifyRole(p.title, p.description) !== null));
 }
 
 /* -------------------------------------------------------------- loading --- */
@@ -207,6 +239,9 @@ function isObject(v: unknown): v is Record<string, unknown> {
 
 function validateSpec(v: unknown, where: string, file: string): FilterSpec {
   if (!isObject(v)) throw bad(file, `${where} must be an object`);
+  if (v.targeting !== undefined && v.targeting !== "roles" && v.targeting !== "profile") {
+    throw bad(file, `${where}.targeting must be roles | profile`);
+  }
   for (const field of SPEC_ARRAY_FIELDS) {
     const arr = v[field];
     if (arr === undefined) continue;
@@ -233,15 +268,12 @@ function bad(file: string, problem: string): Error {
  * Read the filter config, or decide there isn't one.
  *
  * The two failure modes are deliberately not symmetric. No path configured, or a
- * path that does not exist, means "no filtering" -- a legitimate setup, and the
+ * path that does not exist, means "no additional constraints" -- a legitimate setup, and the
  * one every existing deployment is already in. A file that exists but does not
  * parse or does not validate *throws*, loudly, naming the file and the problem.
  *
- * Falling back to "no filtering" on a malformed file would be the worse bug by a
- * wide margin: the poller would quietly start tracking every posting on every
- * board -- tens of thousands of rows, a Discord channel flooded past any hope of
- * reading it, and a fit-scoring budget burned on noise -- all from a stray comma
- * that nobody sees. A crash at startup is a five-minute fix. Silence is not.
+ * Malformed optional constraints fail loudly rather than silently broadening
+ * the feed beyond the configured age, company or location limits.
  */
 export function loadFilters(path: string | null): FilterConfig {
   if (!path) return {};
@@ -320,7 +352,8 @@ export function specFor(cfg: FilterConfig, kind: string, ident: string): FilterS
  * is a set. Anything that survives that changes what gets tracked.
  */
 export function filterHash(spec: FilterSpec): string {
-  const canon: Record<string, unknown> = {};
+  const canon: Record<string, unknown> = { roleFilterVersion: ROLE_FILTER_VERSION };
+  if (spec.targeting === "profile") canon.targeting = "profile";
   for (const field of SPEC_ARRAY_FIELDS) {
     const terms = spec[field];
     if (!required(terms)) continue;
