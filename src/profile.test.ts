@@ -146,6 +146,19 @@ test('configuration rejects invalid confidence and missing Jev credentials', t =
   process.env.RADAR_FIT_CONFIDENCE='80';assert.throws(loadConfig,/between 0 and 1/);
   process.env.RADAR_FIT_CONFIDENCE='0.8';delete process.env.TYPESAFE_API_KEY;assert.throws(loadConfig,/requires TYPESAFE/);
 });
+test('an explicit RADAR_MATCHES_ONLY=false is honoured with TypeSafe scoring', t => {
+  const names=['DISCORD_TOKEN','DISCORD_CHANNEL_ID','RADAR_FIT_PROVIDER','RADAR_MATCHES_ONLY','TYPESAFE_API_KEY','RADAR_PROFILE'];
+  const old=Object.fromEntries(names.map(k=>[k,process.env[k]]));
+  t.after(()=>{for(const k of names){if(old[k]===undefined)delete process.env[k];else process.env[k]=old[k];}});
+  process.env.DISCORD_TOKEN='test';process.env.DISCORD_CHANNEL_ID='test';
+  process.env.RADAR_FIT_PROVIDER='typesafe';process.env.TYPESAFE_API_KEY='test';process.env.RADAR_PROFILE='profile.json';
+  delete process.env.RADAR_MATCHES_ONLY;
+  assert.equal(loadConfig().matchesOnly,true,'unset defaults to matches-only for TypeSafe');
+  process.env.RADAR_MATCHES_ONLY='false';
+  assert.equal(loadConfig().matchesOnly,false,'an explicit false must re-enable raw alerts');
+  process.env.RADAR_MATCHES_ONLY='true';
+  assert.equal(loadConfig().matchesOnly,true);
+});
 
 test('retained jobs outside the current geography never reach the API or Discord', async t => {
   const {db,id,cfg,source,profilePath}=setup(t);

@@ -106,7 +106,14 @@ export function loadConfig(): Config {
   if (!Number.isFinite(fitConfidence) || fitConfidence < 0 || fitConfidence > 1) throw new Error("RADAR_FIT_CONFIDENCE must be between 0 and 1");
   const fitConcurrency = Number(process.env.RADAR_FIT_CONCURRENCY ?? 3);
   if (!Number.isInteger(fitConcurrency) || fitConcurrency < 1 || fitConcurrency > 10) throw new Error("RADAR_FIT_CONCURRENCY must be an integer from 1 to 10");
-  const matchesOnly = process.env.RADAR_MATCHES_ONLY === "true" || fitProvider === "typesafe";
+  // Explicit env wins; unset defaults to matches-only for the TypeSafe path,
+  // because profile matching is the reason that provider exists. An explicit
+  // `false` re-enables raw opening/repost alerts alongside match alerts —
+  // useful while the strict match gates are being evaluated on real data.
+  const matchesOnly =
+    process.env.RADAR_MATCHES_ONLY === undefined
+      ? fitProvider === "typesafe"
+      : process.env.RADAR_MATCHES_ONLY === "true";
   if (matchesOnly && fitProvider !== "typesafe") throw new Error("Matches-only mode requires typesafe scoring with confidence");
   if (fitProvider === "typesafe" && (!process.env.TYPESAFE_API_KEY || !process.env.RADAR_PROFILE)) throw new Error("TypeSafe scoring requires TYPESAFE_API_KEY and RADAR_PROFILE");
   return {
