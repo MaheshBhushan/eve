@@ -1,5 +1,11 @@
 import type { Adapter, ParsedRef } from "./index.ts";
 import type { SourceKind } from "../types.ts";
+import { remotive } from "./remotive.ts";
+import { weworkremotely } from "./weworkremotely.ts";
+import { remoteok } from "./remoteok.ts";
+import { workingnomads } from "./workingnomads.ts";
+import { himalayas } from "./himalayas.ts";
+import { arbeitnow } from "./arbeitnow.ts";
 import { greenhouse } from "./greenhouse.ts";
 import { lever } from "./lever.ts";
 import { ashby } from "./ashby.ts";
@@ -21,6 +27,12 @@ import { browser } from "./browser.ts";
  * references a cheap JSON adapter could have served.
  */
 export const ADAPTERS: Adapter[] = [
+  remotive,
+  weworkremotely,
+  remoteok,
+  workingnomads,
+  himalayas,
+  arbeitnow,
   greenhouse,
   lever,
   ashby,
