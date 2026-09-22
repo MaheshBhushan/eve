@@ -16,6 +16,7 @@ import {
   markPolled,
   openDb,
   pendingEvents,
+  queueEvent,
   removeSource,
   setApplied,
   setFit,
@@ -495,4 +496,26 @@ test("a stored guess yields to a stated date on a later poll, but a fact never d
   // A different stated time on a still-open posting does not overwrite the first.
   poll(db, sourceId, [posting({ postedAt: "2026-08-31T08:00:00Z" })]);
   assert.equal(only(db, sourceId).posted_at, "2026-08-30T08:00:00Z");
+});
+
+test("the delivery queue always carries match and personal events, even unclassified ones", (t) => {
+  const { db, sourceId } = freshDb(t);
+  // A title the five-family classifier does not recognise: stored and shown on
+  // the dashboard, but not part of the routine Discord feed.
+  poll(db, sourceId, [
+    posting({ externalId: "m1", title: "Werkstudent Marketing", url: "https://boards.example/acme/m1" }),
+  ]);
+  const row = only(db, sourceId);
+  assert.equal(row.roleFamily, null, "the classifier does not know this title");
+  assert.equal(pendingEvents(db, 50).length, 0, "routine openings on unclassified postings stay out of Discord");
+
+  // A Jev match is not routine noise, and a claim alert is personal. Both must
+  // reach the drain even though the cheap classifier said nothing.
+  queueEvent(db, sourceId, row.id, "high_fit", { profileMatch: true });
+  queueEvent(db, sourceId, row.id, "posting_opened");
+  assert.deepEqual(pendingEvents(db, 50).map((e) => e.type), ["high_fit"]);
+
+  // Matches-only mode sees everything so it can delete what it will not send:
+  // the poll's own opening event plus the two queued above.
+  assert.equal(pendingEvents(db, 50, true).length, 3);
 });

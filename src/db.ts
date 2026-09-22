@@ -570,10 +570,38 @@ export function queueEvent(
   ).run(sourceId, postingId, type, JSON.stringify(payload));
 }
 
+/**
+ * The delivery queue.
+ *
+ * `roleFamily IS NOT NULL` is the cheap classifier's noise gate: postings that
+ * match none of the five role families are stored and shown on the dashboard,
+ * but their routine openings do not reach Discord. That gate must not swallow
+ * the events that are not routine:
+ *
+ *   - `high_fit` is Jev's verdict on a posting that may well have a title the
+ *     classifier did not recognise, and a model-judged match is exactly what
+ *     the user asked to be told about;
+ *   - `vanished_while_claimed` and `stale` only exist for postings the user
+ *     claimed, so they are personal regardless of classification.
+ *
+ * `includeUnclassified` (matches-only mode) lifts the gate entirely, because
+ * the drain deletes everything it does not send.
+ */
 export function pendingEvents(db: DatabaseSync, limit = 100, includeUnclassified = false): EventRow[] {
+  if (includeUnclassified) {
+    return db
+      .prepare("SELECT * FROM events WHERE delivered_at IS NULL ORDER BY id LIMIT ?")
+      .all(limit) as unknown as EventRow[];
+  }
   return db
-    .prepare("SELECT * FROM events WHERE delivered_at IS NULL AND posting_id IN (SELECT id FROM postings WHERE ? OR roleFamily IS NOT NULL) ORDER BY id LIMIT ?")
-    .all(Number(includeUnclassified), limit) as unknown as EventRow[];
+    .prepare(
+      `SELECT * FROM events
+        WHERE delivered_at IS NULL
+          AND (type IN ('high_fit', 'vanished_while_claimed', 'stale')
+               OR posting_id IN (SELECT id FROM postings WHERE roleFamily IS NOT NULL))
+        ORDER BY id LIMIT ?`,
+    )
+    .all(limit) as unknown as EventRow[];
 }
 
 /** Stamped only after Discord confirms — see the note on events.delivered_at. */
