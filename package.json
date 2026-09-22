@@ -9,11 +9,13 @@
     "bot": "node src/bot.ts",
     "dashboard": "node src/dashboard.ts",
     "register": "node src/bot.ts --register",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "enable-profile": "node --env-file=.env scripts/enable-profile.ts"
   },
   "license": "MIT",
   "dependencies": {
-    "discord.js": "^14.27.0"
+    "discord.js": "^14.27.0",
+    "fast-xml-parser": "5.11.1"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",

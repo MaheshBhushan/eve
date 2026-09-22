@@ -104,7 +104,27 @@ A new posting's stated age decides what, if anything, it becomes: within `RADAR_
 
 ## Fit scoring
 
-Each new posting is scored 0–100 against [job-pipeline](https://github.com/MaheshBhushan/job-pipeline)'s `profile.json`, by shelling out to the `claude` CLI headless rather than an SDK call — the CLI is already logged in on the machine, so there's no API key to provision or bake into a systemd unit. The profile is read **by path, read-only**: job-pipeline owns the file, so there's one source of truth and zero code coupling between the two repos. Only the `resume`, `work_eligibility` and `application_answers` sections go into the prompt; `identity` (home address, phone) never enters it — it can only ever be leakage. Unset `RADAR_PROFILE` and scoring, and the high-fit alert with it, switch off. Scoring is capped at `RADAR_FIT_BUDGET` calls per cycle, applied after all boards have been fetched so the last board polled doesn't get starved of the whole allowance forever.
+Eve supports the existing Claude CLI scorer and profile-driven TypeSafe Jev matching.
+
+For Jev, set `TYPESAFE_API_KEY` in your local `.env` and keep `RADAR_PROFILE` pointing at your existing profile. Run:
+
+```bash
+npm run enable-profile
+```
+
+This validates the key and profile, backs up `.env` and the database, retains existing sources, registers broad software searches for Germany, India, the UK and Worldwide plus `remotive:all`, and restarts active bot/dashboard user services. The next scheduled poll performs classification. No Discord messages are sent by the activation script itself.
+
+`config/filters.profile.json` preserves the existing geography and remote exclusions but sets `targeting: "profile"`. Unknown titles now reach Jev. The five existing role families remain preferences; seniority, experience and language exclusions remain hard rules. Regional restrictions on remote jobs are still enforced: an employer being international does not establish candidate eligibility.
+
+Jev judges required experience, education, language, work eligibility and mandatory technologies separately, then scores duties against the profile. Discord match delivery requires **all requirements satisfied**, **fit ≥ `RADAR_FIT_THRESHOLD` (75/100 by default)**, and **confidence ≥ `RADAR_FIT_CONFIDENCE` (0.8 by default)**. Confidence is the minimum reported confidence across the six answers, a conservative policy threshold rather than a calibrated probability of employment. These defaults require evaluation on real labeled jobs.
+
+Missing evidence remains unknown. Search postings without descriptions get bounded enrichment attempts using job-specific structured data or LinkedIn's guest description. Blocked, absent and oversized evidence stays unscored and retries after six hours. Unknown/rejected decisions are retained without notifications. Changes to profile, pinned model, questions or posting content invalidate cached assessments; threshold changes reuse stored assessments. At most `RADAR_FIT_BUDGET` candidates are attempted per poll, with `RADAR_FIT_CONCURRENCY` workers (default 3).
+
+Matches-only mode replaces raw fresh/opening/repost notifications with one profile-match alert per deduplication key. Personal lifecycle reminders for claimed jobs remain. Matches may have an unknown publication date or be older than the freshness window; they are labeled as profile matches, never as newly published. This deliberately allows useful older open jobs to surface. Other age/location constraints in the filter file still apply. Discord failures retain pending match events for retry; a crash between Discord accepting a message and SQLite recording it can still cause a duplicate.
+
+The Remotive feed includes descriptions and original Remotive links/source credit, has a documented 24-hour publication delay, and is polled at most once every six hours. It broadens discovery beyond title searches, but no source combination promises every job worldwide. Country searches retain their existing page caps. See [Remotive API documentation](https://github.com/remotive-com/remote-jobs-api) and [TypeSafe API](https://docs.typesafe.ai/api).
+
+The default `RADAR_FIT_PROVIDER=claude` preserves the legacy CLI scorer. Only capability-related profile sections (`resume`, `work_eligibility`, `application_answers`) are sent to either provider; the top-level `identity` section is excluded. Do not place contact details in capability sections.
 
 ## Sources
 
@@ -123,6 +143,12 @@ Each new posting is scored 0–100 against [job-pipeline](https://github.com/Mah
 | `xing` | `xing:machine learning@nürnberg` | **never complete** |
 | `linkedin` | `linkedin:werkstudent machine learning@nürnberg` | **never complete** |
 | `browser` | `linkedin:rust engineer@berlin` (only if the direct adapters are removed) | **never complete** |
+| `remotive` | `remotive:all` | **never complete** |
+| `weworkremotely` | `wwr:all` or `weworkremotely:all` | **never complete** |
+| `remoteok` | `remoteok:all` | **never complete** |
+| `workingnomads` | `workingnomads:all` | **never complete** |
+| `himalayas` | `himalayas:all` | **never complete** |
+| `arbeitnow` | `arbeitnow:de`, `arbeitnow:uk` | **never complete** |
 
 The first five are per-employer boards on public, unauthenticated JSON APIs — one request per board (SmartRecruiters paginates), each a genuine complete snapshot.
 
@@ -136,11 +162,22 @@ Measured yield is lopsided enough to be worth stating plainly: one city search (
 
 **The four board searches** (`stepstone`, `indeed`, `xing`, `linkedin`) talk to each site over plain HTTP with a browser user agent and no session, and read whatever structured data the search page already carries: StepStone's server-rendered cards, Indeed's embedded job-card JSON, XING's inlined GraphQL cache, LinkedIn's unauthenticated guest search fragment. Each fetches page 1 only (LinkedIn: up to four pages of the last seven days, newest first) and declares itself `complete: false`, so the poller never reads an absence as a closure. Only LinkedIn and Indeed state a publish date. Indeed sits behind Cloudflare and intermittently answers with a challenge page; the adapter throws on it and the failure counter mutes the source until it recovers. None of these do pagination that robots.txt disallows, and none do any evasion — a block is a signal to stop, not a problem to route around.
 
+**The remote feeds** (`remotive`, `weworkremotely`, `remoteok`, `workingnomads`, `himalayas`, `arbeitnow`) are public JSON/RSS endpoints with full job descriptions, and they all declare `complete: false`: a feed is a discovery window, so a posting falling out of it is never read as a closure. Each keeps the source's eligibility evidence rather than flattening it — WWR's `region`/`country`/`state`, Himalayas' hiring-country and UTC-offset restrictions, Arbeitnow's board-specific location — because the location filter and Jev both read that field. Missing eligibility data is never promoted to permission: a missing or malformed restriction list stays explicitly unknown, and only a valid, empty restriction array means "Worldwide". A blank location is stored as null, never inferred from the board's country. All are parsed by pure functions with fixtures (`src/feeds.test.ts`), and the RSS parser refuses DOCTYPE declarations and caps item counts rather than trusting the feed. Cadences are per source (`RADAR_*` overrides are not needed): WWR every 30 minutes with conditional requests, Remote OK/Working Nomads/Arbeitnow hourly, Himalayas daily.
+
+**Himalayas** is the one source whose window is much smaller than its volume: a measured 200-job window covered 4.2 hours (~1,150 new jobs a day), so a fixed head-only walk would miss most arrivals. Each daily poll instead does two bounded walks resumed from an opaque per-source cursor: a head walk that stops at the previous poll's watermark (fetching exactly what is new, up to 1,600 jobs) and a 500-job background walk that covers the historical tail a slice at a time and restarts when it reaches the end. Nothing is permanently unreachable, and the fresh slice is never buried by backfill.
+
+Every network source now goes through `src/http.ts`: per-domain concurrency caps, byte limits enforced while reading, conditional requests, redirects validated hop by hop (no credentials, no private/link-local destinations — including IPv4-mapped IPv6 forms — and a caller allowlist), and a failure taxonomy that distinguishes blocked from malformed from not-modified. A 429/403 records a **domain cooldown** in `domain_state`, so every query source on a throttled host pauses together while other domains keep polling; a failed source gets a bounded per-source backoff (`sources.next_attempt_at`). At `RADAR_MAX_FAILURES` the source is marked muted, but it is still probed on the capped 6-hour backoff, so an outage recovers on its own instead of needing a manual re-add.
+
 Plus an opt-in browser-driven adapter (`src/sources/browser.ts`, via [browser-use](https://github.com/browser-use/browser-use)), now a fallback behind the direct adapters above — disabled unless `RADAR_BROWSER_USE_DIR` is configured. Scraping those sites likely breaches their terms of service, and a driven browser signed into your own account can get it rate-limited, challenged or flagged; there is no evasion built in (no proxy rotation, no fingerprint spoofing, no CAPTCHA solving) — a block is meant to fail loudly so the poller's failure counter mutes the source, not to be worked around.
 
 ## Filtering
 
-Everything is config-driven. `RADAR_FILTERS` points at a JSON file; unset means no filtering at all. `config/filters.example.json` ships a default targeting **working-student and internship roles in Germany**, but nothing about that is baked into the code — change the file to track anything else.
+Every ingestion path applies the deterministic five-family classifier in `src/roles.ts` before storage: AI / LLM (priority 1), Backend / Platform, Developer Tools and Industrial AI (priority 2), and ML Systems (priority 3). Titles and available descriptions supply evidence; senior titles, explicit experienced-professional requirements and mandatory C1/C2 German are excluded. Missing seniority is allowed; three years is left to the existing profile scorer. No classification LLM calls or additional detail requests are made.
+
+Locations are worldwide, with India, US, UK, Germany and the European Union explicitly covered in search configuration. A location match does not establish visa or work-authorization eligibility. German regional sources remain useful alongside international searches. `RADAR_FILTERS` supplies optional additional constraints; leaving it unset cannot disable role targeting.
+
+Accepted rows store `roleFamily`, `rolePriority`, `matchedSignals` and `secondaryRoleFamilies`. Existing rows are classified on database migration: irrelevant history is retained but excluded from the dashboard, bot feed, pending delivery and scoring backlog. The existing 0–100 fit scorer remains unchanged; its queue and dashboard put higher-priority families first. The dashboard includes a family selector. Descriptionless search cards rely on titles; unusual roles without either sufficient title evidence or an available description cannot be classified reliably.
+
 
 ```jsonc
 {
@@ -173,7 +210,7 @@ node scripts/seed-boards.ts config/boards.json --dry-run   # resolve + fetch, wr
 node scripts/seed-boards.ts config/boards.json             # register and seed
 ```
 
-`config/searches.example.json` holds the board-search side: one `werkstudent` search per city per board for LinkedIn, StepStone, XING and Indeed, plus a country-wide one that catches remote listings. Seed it the same way.
+`config/searches.example.json` holds the board-search side: focused family searches on LinkedIn for India, US, UK, the European Union and worldwide, plus German searches on StepStone, XING and Indeed. Seed it the same way.
 
 `config/boards.example.json` is a **verified** starting set for the German student-role case — every entry was fetched live and its yield measured, with the ones that don't work recorded so nobody re-checks them. It needs no Discord credentials, skips already-watched boards, carries on past failures, and seeds silently: no events are queued, because seeding builds the baseline the next poll diffs against.
 
@@ -237,8 +274,9 @@ src/
   config.ts          env parsing
   types.ts           shared types
   sources/
-    index.ts         Adapter interface, shared fetch/HTML helpers
+    index.ts         Adapter interface, shared fetch/HTML/date helpers
     registry.ts       adapter lookup, /watch reference parsing
+    rss.ts            shared RSS/Atom parser (bounded, DOCTYPE-refusing)
     greenhouse.ts     Greenhouse Job Board API adapter
     lever.ts          Lever Postings API adapter
     ashby.ts          Ashby job-board API adapter
@@ -251,7 +289,14 @@ src/
     indeed.ts         Indeed search, direct HTTP, complete: false
     xing.ts           XING search, direct HTTP, complete: false
     linkedin.ts       LinkedIn guest search, direct HTTP, complete: false
+    remotive.ts       Remotive JSON feed, complete: false
+    weworkremotely.ts WWR RSS feed, complete: false
+    remoteok.ts       Remote OK JSON API, complete: false
+    workingnomads.ts  Working Nomads exposed_jobs JSON, complete: false
+    himalayas.ts      Himalayas browse API (cursor pages), complete: false
+    arbeitnow.ts      Arbeitnow DE/UK API (links.next pages), complete: false
     browser.ts        opt-in browser-use fallback, complete: false
+  http.ts             bounded HTTP: domain caps, byte limits, redirect checks
   *.test.ts           test suite, no network
 config/
   filters.example.json  what to track; copy to filters.json
@@ -305,3 +350,5 @@ A live cold poll against real boards: Stripe (Greenhouse) 529 open postings, Spo
 ## License
 
 MIT
+
+To replace already registered broad searches, run `node scripts/retarget-searches.ts` after copying the example configurations to their live filenames. It backs up the database, mutes obsolete search registrations without deleting history, and registers the focused searches without fetching or sending notifications. Restart long-running dashboard/bot processes after upgrading; the poller loads code each cycle.

@@ -1,6 +1,10 @@
 node_modules/
 eve.db*
 .env
+# Backup files the profile-activation script writes (.env.before-profile-<ts>)
+# carry live credentials. Keep them out of git and out of any archive.
+.env.*
+!.env.example
 
 __pycache__/
 *.pyc

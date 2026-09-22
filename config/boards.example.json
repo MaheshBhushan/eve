@@ -9,107 +9,34 @@
     "Adds a workday group (Workday CXS search API) and a successfactors group",
     "(scraped SF /search/ results table) for large-corporate employers that",
     "have no public API on Greenhouse/Lever/Ashby/SmartRecruiters/Personio.",
-    "measured: 2026-09-02"
+    "measured: 2026-09-02",
+    "The remote-feed group below was added 2026-09-22 from the source",
+    "research (docs/JOB_SOURCE_IMPLEMENTATION_HANDOFF.md): public JSON/RSS",
+    "feeds with full descriptions, all declared incomplete so absence never",
+    "closes a posting. Country/time-zone restrictions are preserved in the",
+    "location field and the existing profile filters still decide what reaches",
+    "Discord."
   ],
   "boards": [
     {
-      "ref": "arbeitsagentur:werkstudent@münchen+25",
-      "group": "bavaria-search"
+      "ref": "arbeitsagentur:Generative AI~7",
+      "group": "target-role-search"
     },
     {
-      "ref": "arbeitsagentur:praktikum@münchen+25",
-      "group": "bavaria-search"
+      "ref": "arbeitsagentur:Werkstudent Python~7",
+      "group": "target-role-search"
     },
     {
-      "ref": "arbeitsagentur:werkstudent@nürnberg+25",
-      "group": "bavaria-search"
+      "ref": "arbeitsagentur:Developer Tools~7",
+      "group": "target-role-search"
     },
     {
-      "ref": "arbeitsagentur:werkstudent@erlangen+25",
-      "group": "bavaria-search"
+      "ref": "arbeitsagentur:Digitalisierung Produktion~7",
+      "group": "target-role-search"
     },
     {
-      "ref": "arbeitsagentur:werkstudent@regensburg+25",
-      "group": "bavaria-search"
-    },
-    {
-      "ref": "arbeitsagentur:werkstudent@ingolstadt+25",
-      "group": "bavaria-search"
-    },
-    {
-      "ref": "arbeitsagentur:werkstudent@augsburg+25",
-      "group": "bavaria-search"
-    },
-    {
-      "ref": "arbeitsagentur:werkstudent@stuttgart+25",
-      "group": "bw-search",
-      "note": "Mercedes-Benz, Porsche, Bosch, MAHLE, MHP, Duerr, Kaercher, STIHL"
-    },
-    {
-      "ref": "arbeitsagentur:praktikum@stuttgart+25",
-      "group": "bw-search"
-    },
-    {
-      "ref": "arbeitsagentur:werkstudent@karlsruhe+25",
-      "group": "bw-search",
-      "note": "SAP Walldorf, Bosch, INIT, PTV, 1&1/IONOS, dm, grenke, Michelin"
-    },
-    {
-      "ref": "arbeitsagentur:werkstudent@mannheim+25",
-      "group": "bw-search"
-    },
-    {
-      "ref": "arbeitsagentur:werkstudent@heidelberg+25",
-      "group": "bw-search",
-      "note": "Heidelberger Druckmaschinen, Heidelberg Materials, Roche"
-    },
-    {
-      "ref": "arbeitsagentur:werkstudent@ulm+25",
-      "group": "bw-search",
-      "note": "John Deere, Liebherr, Wieland, Nokia"
-    },
-    {
-      "ref": "arbeitsagentur:werkstudent@friedrichshafen+25",
-      "group": "bw-search",
-      "note": "ZF, Rolls-Royce Power Systems, Liebherr Aerospace"
-    },
-    {
-      "ref": "arbeitsagentur:werkstudent@freiburg+25",
-      "group": "bw-search",
-      "note": "SICK, Testo, Haufe, TRUMPF Umkreis"
-    },
-    {
-      "ref": "arbeitsagentur:werkstudent@frankfurt am main+25",
-      "group": "hesse-search",
-      "note": "Lufthansa, Deutsche Boerse, DB Schenker, Fresenius, Samsung"
-    },
-    {
-      "ref": "arbeitsagentur:praktikum@frankfurt am main+25",
-      "group": "hesse-search"
-    },
-    {
-      "ref": "arbeitsagentur:werkstudent@darmstadt+25",
-      "group": "hesse-search",
-      "note": "Merck, ESA/ESOC, Software AG"
-    },
-    {
-      "ref": "arbeitsagentur:werkstudent@mainz+25",
-      "group": "hesse-search",
-      "note": "SCHOTT, BioNTech"
-    },
-    {
-      "ref": "arbeitsagentur:werkstudent@ludwigshafen am rhein+25",
-      "group": "hesse-search",
-      "note": "BASF, KSB Frankenthal"
-    },
-    {
-      "ref": "arbeitsagentur:werkstudent@wiesbaden+25",
-      "group": "hesse-search"
-    },
-    {
-      "ref": "arbeitsagentur:werkstudent@saarbrücken+25",
-      "group": "hesse-search",
-      "note": "Saarland; ZF Saarbruecken, Ford, DFKI"
+      "ref": "arbeitsagentur:ML Inference~7",
+      "group": "target-role-search"
     },
     {
       "ref": "smartrecruiters:BoschGroup",
@@ -293,6 +220,41 @@
       "ref": "successfactors:jobs.sap.com",
       "group": "successfactors",
       "note": "SAP, Walldorf; 961 open reqs, global board"
+    },
+    {
+      "ref": "remotive:all",
+      "group": "remote-feed",
+      "note": "existing adapter; worldwide remote, full descriptions, 24h publication delay, 6h cadence"
+    },
+    {
+      "ref": "weworkremotely:all",
+      "group": "remote-feed",
+      "note": "published RSS; 82 items measured; region/country/state kept in location; 30m cadence"
+    },
+    {
+      "ref": "remoteok:all",
+      "group": "remote-feed",
+      "note": "public JSON API; 99 jobs measured; metadata row skipped structurally; 60m cadence"
+    },
+    {
+      "ref": "workingnomads:all",
+      "group": "remote-feed",
+      "note": "exposed_jobs endpoint; 56 jobs measured; source URL is the identity; 60m cadence"
+    },
+    {
+      "ref": "himalayas:all",
+      "group": "remote-feed",
+      "note": "documented browse API; 200 newest jobs per daily poll; hiring-country and UTC-offset restrictions kept"
+    },
+    {
+      "ref": "arbeitnow:de",
+      "group": "remote-feed",
+      "note": "documented API; 800 newest German-board jobs per hourly poll; blank locations stay unknown"
+    },
+    {
+      "ref": "arbeitnow:uk",
+      "group": "remote-feed",
+      "note": "documented API; 500 newest UK-board jobs per hourly poll; blank locations default to United Kingdom"
     }
   ],
   "_rejected": [
