@@ -1,0 +1,210 @@
+{
+  "checked_at_utc": "2026-09-22T13:42:19.935843+00:00",
+  "observations": [
+    {
+      "url": "https://remotefirstjobs.com/rss",
+      "status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "links": [
+        "https://fonts.googleapis.com",
+        "https://cdn.remotefirstjobs.com",
+        "https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;1000&display=optional",
+        "https://remotefirstjobs.com/jobsopensearch.xml",
+        "https://remotefirstjobs.com/rss",
+        "/jobs",
+        "/jobs/hybrid",
+        "/jobs/web3",
+        "/jobs/internship",
+        "/jobs/software-development",
+        "/jobs/cybersecurity",
+        "/jobs/customer-service",
+        "/jobs/design",
+        "/jobs/marketing",
+        "/jobs/sales",
+        "/jobs/product",
+        "/jobs/business",
+        "/jobs/data",
+        "/jobs/devops",
+        "/jobs/finance-legal",
+        "/jobs/hr",
+        "/jobs/qa",
+        "/jobs/writing",
+        "/jobs/project-management",
+        "/jobs",
+        "/jobs/hybrid",
+        "/jobs/web3",
+        "/jobs/internship",
+        "/jobs/software-development",
+        "/jobs/cybersecurity",
+        "/jobs/customer-service",
+        "/jobs/design",
+        "/jobs/marketing",
+        "/jobs/sales",
+        "/jobs/product"
+      ]
+    },
+    {
+      "url": "https://devopsjobs.io/jobs.rss",
+      "status": 200,
+      "content_type": "application/rss+xml; charset=utf-8",
+      "links": [
+        "https://devopsjobs.io/jobs.rss",
+        "https://urldefense.com/v3/__https:/www.att.jobs/accommodation/__;!!BhdT!gVgkRvpoFXvxCPguQlKOpna1E9V2xmnpQvxcjhTWaBpnwCl09S3N6PYnLgM6kQjmJXAYFLihSQ4W3Sw2bszyLYN3$",
+        "https://jobs.nationalgrid.com/usa/equal-employment-opportunities",
+        "https://jobs.rbc.com/ca/en",
+        "https://jobs.johnsoncontrols.com/about-us",
+        "https://jobs.danaher.com/global/en/notice-to-us-candidates-based-in/applying-for-roles-outside-nyc",
+        "https://www.capitalgroup.com/about-us/careers/compensation-benefits.html",
+        "https://jobs.bd.com/en/your-career-at-BD",
+        "https://cgi-veterans.jobs/",
+        "https://www.metrostar.com/jobs/",
+        "https://cgi-veterans.jobs/",
+        "https://1komma5.com/de/ueber-uns/jobs/tech/",
+        "https://jobs.bmo.com/global/en/Total-Rewards",
+        "http://jobs.bmo.com/us/en"
+      ]
+    },
+    {
+      "url": "https://www.pythonjobshq.com/jobs.rss",
+      "status": 200,
+      "content_type": "application/rss+xml; charset=utf-8",
+      "links": [
+        "https://www.pythonjobshq.com/jobs.rss"
+      ]
+    },
+    {
+      "url": "https://jobspresso.co/feed/",
+      "status": 200,
+      "content_type": "application/rss+xml; charset=UTF-8",
+      "links": [
+        "https://jobspresso.co/feed/"
+      ]
+    },
+    {
+      "url": "https://foorilla.com/api/list/",
+      "status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "links": [
+        "https://foorilla.com/api/",
+        "/api/list/"
+      ]
+    },
+    {
+      "url": "https://himalayas.app/jobs/api?limit=1",
+      "status": 200,
+      "content_type": "application/json",
+      "top_keys": [
+        "comments",
+        "updatedAt",
+        "offset",
+        "limit",
+        "totalCount",
+        "nextCursor",
+        "jobs"
+      ],
+      "sample_field_types": {
+        "title": "str",
+        "excerpt": "str",
+        "companyName": "str",
+        "companySlug": "str",
+        "companyLogo": "str",
+        "employmentType": "str",
+        "minSalary": "NoneType",
+        "maxSalary": "NoneType",
+        "salaryPeriod": "str",
+        "seniority": "list",
+        "currency": "NoneType",
+        "locationRestrictions": "list",
+        "timezoneRestrictions": "list",
+        "categories": "list",
+        "parentCategories": "list",
+        "description": "str",
+        "pubDate": "int",
+        "expiryDate": "int",
+        "applicationLink": "str",
+        "guid": "str"
+      },
+      "sample_dates": {
+        "pubDate": 1790080189,
+        "expiryDate": 1795264188
+      }
+    },
+    {
+      "url": "https://4dayweek.io/api/jobs?page=1",
+      "status": 200,
+      "content_type": "application/json",
+      "top_keys": [
+        "jobs",
+        "total",
+        "page",
+        "has_more"
+      ],
+      "sample_field_types": {
+        "id": "str",
+        "title": "str",
+        "slug": "str",
+        "company_name": "str",
+        "company_id": "str",
+        "work_arrangement": "str",
+        "locations": "list",
+        "posted": "int",
+        "inserted": "str",
+        "schedule_type": "str",
+        "category": "str",
+        "level": "str",
+        "is_expired": "bool",
+        "company": "dict",
+        "work_life_score": "int"
+      },
+      "sample_dates": {
+        "posted": 1790079348,
+        "inserted": "2026-09-22T12:15:48.044303Z"
+      }
+    },
+    {
+      "url": "https://www.themuse.com/developers/api/v2",
+      "status": 200,
+      "content_type": "text/html; charset=UTF-8",
+      "links": [
+        "https://www.themuse.com/developers/api/v2",
+        "/developers/api/v2",
+        "/developers/api/v2/apps",
+        "/search?company=The%20Muse&keyword=Engineering&searchType=jobs",
+        "/developers/api/v2",
+        "/developers/api/v2/apps",
+        "/developers/api/v2/apps",
+        "/search?company=The%20Muse&keyword=Engineering&searchType=jobs",
+        "mailto:api@themuse.com",
+        "/developers/api/v2/terms",
+        "/developers/api/v2/apps",
+        "/developers/api/v2/apps"
+      ]
+    },
+    {
+      "url": "https://devtalents.eu/",
+      "status": 200,
+      "content_type": "text/html",
+      "links": []
+    },
+    {
+      "url": "https://remotefirstjobs.com/rss/jobs/software-development.rss",
+      "status": 200,
+      "content_type": "application/rss+xml; charset=utf-8",
+      "bytes_read": 860721,
+      "truncated": false,
+      "format": "xml",
+      "root": "rss",
+      "items": 100
+    },
+    {
+      "url": "https://devopsjobs.io/jobs.rss",
+      "status": 200,
+      "content_type": "application/rss+xml; charset=utf-8",
+      "bytes_read": 7884250,
+      "truncated": false,
+      "format": "xml",
+      "root": "rss",
+      "items": 1000
+    }
+  ]
+}

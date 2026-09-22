@@ -1,0 +1,853 @@
+{
+  "checked_at_utc": "2026-09-22T13:41:42.675551+00:00",
+  "method": "One bounded unauthenticated GET per endpoint; candidates are explicitly labeled. Observations establish response shape, not permission or stability. No live Eve source registrations were changed.",
+  "endpoints": [
+    {
+      "name": "WWR",
+      "url": "https://weworkremotely.com/remote-jobs.rss",
+      "basis": "linked and documented",
+      "status": 200,
+      "final_url": "https://weworkremotely.com/remote-jobs.rss",
+      "content_type": "application/rss+xml; charset=utf-8",
+      "truncated": false,
+      "format": "xml",
+      "root": "rss",
+      "items": 82,
+      "item_schemas": [
+        [
+          "{http://search.yahoo.com/mrss}content",
+          "title",
+          "region",
+          "country",
+          "state",
+          "skills",
+          "category",
+          "type",
+          "description",
+          "pubDate",
+          "expires_at",
+          "guid",
+          "link"
+        ]
+      ],
+      "sample_url": "https://weworkremotely.com/remote-jobs/bright-tax-client-success-manager-1",
+      "sample_date": "Tue, 22 Sep 2026 11:13:20 +0000",
+      "description_characters": 4797
+    },
+    {
+      "name": "Remote OK",
+      "url": "https://remoteok.com/api",
+      "basis": "candidate public endpoint",
+      "status": 200,
+      "final_url": "https://remoteok.com/api",
+      "content_type": "application/json",
+      "truncated": false,
+      "format": "json",
+      "top_level_keys": "array",
+      "items": 100,
+      "item_schemas": [
+        [
+          "last_updated",
+          "legal"
+        ],
+        [
+          "slug",
+          "id",
+          "epoch",
+          "date",
+          "company",
+          "company_logo",
+          "position",
+          "tags",
+          "description",
+          "location",
+          "apply_url",
+          "salary_min",
+          "salary_max",
+          "logo",
+          "url"
+        ]
+      ],
+      "has_legal_notice": true
+    },
+    {
+      "name": "Working Nomads",
+      "url": "https://www.workingnomads.com/api/exposed_jobs/",
+      "basis": "linked from homepage",
+      "status": 200,
+      "final_url": "https://www.workingnomads.com/api/exposed_jobs/",
+      "content_type": "application/json",
+      "truncated": false,
+      "format": "json",
+      "top_level_keys": "array",
+      "items": 56,
+      "item_schemas": [
+        [
+          "url",
+          "title",
+          "description",
+          "company_name",
+          "category_name",
+          "tags",
+          "location",
+          "pub_date"
+        ],
+        [
+          "url",
+          "title",
+          "description",
+          "company_name",
+          "category_name",
+          "tags",
+          "location",
+          "pub_date"
+        ]
+      ]
+    },
+    {
+      "name": "Jobspresso",
+      "url": "https://jobspresso.co/feed/",
+      "basis": "linked feed; content type unverified",
+      "status": 200,
+      "final_url": "https://jobspresso.co/feed/",
+      "content_type": "application/rss+xml; charset=UTF-8",
+      "truncated": false,
+      "format": "xml",
+      "root": "rss",
+      "items": 0,
+      "item_schemas": []
+    },
+    {
+      "name": "Jobspresso jobs",
+      "url": "https://jobspresso.co/remote-jobs-programming-marketing-support/feed/",
+      "basis": "linked feed",
+      "status": 200,
+      "final_url": "https://jobspresso.co/remote-jobs-programming-marketing-support/feed/",
+      "content_type": "application/rss+xml; charset=UTF-8",
+      "truncated": false,
+      "format": "xml",
+      "root": "rss",
+      "items": 0,
+      "item_schemas": []
+    },
+    {
+      "name": "Dynamite Jobs",
+      "url": "https://dynamitejobs.com/feed/rss.xml",
+      "basis": "linked feed; may be editorial",
+      "status": 200,
+      "final_url": "https://dynamitejobs.com/feed/rss.xml",
+      "content_type": "application/rss+xml; charset=utf-8",
+      "truncated": false,
+      "format": "xml",
+      "root": "rss",
+      "items": 138,
+      "item_schemas": [
+        [
+          "title",
+          "link",
+          "description",
+          "{http://purl.org/rss/1.0/modules/content/}encoded",
+          "guid",
+          "pubDate"
+        ]
+      ],
+      "sample_url": "https://dynamitejobs.com/blog/how-a-2500month-latam-pm-saved-a-saas-founder-20-hoursweek",
+      "sample_date": "Tue, 25 Mar 2025 21:55:00 +0000",
+      "description_characters": 146
+    },
+    {
+      "name": "RemoteFirstJobs",
+      "url": "https://remotefirstjobs.com/rss",
+      "basis": "linked feed",
+      "status": 200,
+      "final_url": "https://remotefirstjobs.com/rss",
+      "content_type": "text/html; charset=utf-8",
+      "truncated": false,
+      "format": "html",
+      "title": "Remote Jobs RSS Feeds | RemoteFirstJobs"
+    },
+    {
+      "name": "Remote3",
+      "url": "https://www.remote3.co/api/rss",
+      "basis": "linked feed",
+      "status": 200,
+      "final_url": "https://www.remote3.co/api/rss",
+      "content_type": "application/rss+xml",
+      "truncated": false,
+      "format": "xml",
+      "root": "rss",
+      "items": 8,
+      "item_schemas": [
+        [
+          "title",
+          "link",
+          "guid",
+          "pubDate",
+          "description"
+        ]
+      ],
+      "sample_url": "https://remote3.co/remote-jobs/founding-senior-payments-platform-engineer-stablecoin-neobank-ihsan",
+      "sample_date": "Fri, 11 Sep 2026 04:00:31 GMT",
+      "description_characters": 52
+    },
+    {
+      "name": "4dayweek",
+      "url": "https://4dayweek.io/feed",
+      "basis": "linked feed",
+      "status": 200,
+      "final_url": "https://4dayweek.io/feed",
+      "content_type": "application/rss+xml; charset=utf-8",
+      "truncated": false,
+      "format": "xml",
+      "root": "rss",
+      "items": 50,
+      "item_schemas": [
+        [
+          "title",
+          "link",
+          "guid",
+          "pubDate",
+          "description",
+          "author"
+        ]
+      ],
+      "sample_url": "https://4dayweek.io/job/senior-account-executive-at-pcn-710a4e1d",
+      "sample_date": "Tue, 22 Sep 2026 01:54:24 GMT",
+      "description_characters": 31
+    },
+    {
+      "name": "Rat Race Rebellion",
+      "url": "https://ratracerebellion.com/feed/",
+      "basis": "linked editorial feed",
+      "status": 200,
+      "final_url": "https://ratracerebellion.com/feed/",
+      "content_type": "application/rss+xml; charset=UTF-8",
+      "truncated": false,
+      "format": "xml",
+      "root": "rss",
+      "items": 1,
+      "item_schemas": [
+        [
+          "title",
+          "link",
+          "{http://purl.org/dc/elements/1.1/}creator",
+          "pubDate",
+          "category",
+          "category",
+          "category",
+          "category",
+          "guid",
+          "description",
+          "{http://purl.org/rss/1.0/modules/content/}encoded",
+          "{com-wordpress:feed-additions:1}post-id"
+        ]
+      ],
+      "sample_url": "https://ratracerebellion.com/remote-senior-associate-strategy-operations-26/",
+      "sample_date": "Mon, 21 Sep 2026 23:30:10 +0000",
+      "description_characters": 439
+    },
+    {
+      "name": "LaraJobs",
+      "url": "https://larajobs.com/feed",
+      "basis": "linked feed",
+      "status": 200,
+      "final_url": "https://larajobs.com/feed",
+      "content_type": "application/xml",
+      "truncated": false,
+      "format": "xml",
+      "root": "rss",
+      "items": 10,
+      "item_schemas": [
+        [
+          "title",
+          "link",
+          "pubDate",
+          "{http://purl.org/dc/elements/1.1/}creator",
+          "category",
+          "{https://larajobs.com}location",
+          "{https://larajobs.com}job_type",
+          "{https://larajobs.com}salary",
+          "{https://larajobs.com}company",
+          "{https://larajobs.com}company_logo",
+          "{https://larajobs.com}tags",
+          "guid",
+          "description",
+          "{http://purl.org/rss/1.0/modules/content/}encoded"
+        ]
+      ],
+      "sample_url": "https://larajobs.com/job/3938",
+      "sample_date": "Tue, 22 Sep 2026 09:37:48 +0000",
+      "description_characters": 22
+    },
+    {
+      "name": "VueJobs",
+      "url": "https://app.vuejobs.com/feed/posts",
+      "basis": "linked feed",
+      "status": 200,
+      "final_url": "https://app.vuejobs.com/feed/posts",
+      "content_type": "application/xml;charset=UTF-8",
+      "truncated": false,
+      "format": "xml",
+      "root": "rss",
+      "items": 985,
+      "item_schemas": [
+        [
+          "title",
+          "link",
+          "description",
+          "guid",
+          "pubDate"
+        ]
+      ],
+      "sample_url": "https://vuejobs.com/jobs/boxcast-careers-page-staff-software-engineer-infrastructure?utm_source=rssfeed",
+      "sample_date": "Tue, 22 Sep 2026 13:00:18 +0000",
+      "description_characters": 351
+    },
+    {
+      "name": "Golangprojects",
+      "url": "https://www.golangprojects.com/rss.xml",
+      "basis": "linked feed",
+      "status": 200,
+      "final_url": "https://www.golangprojects.com/rss.xml",
+      "content_type": "text/xml; charset=UTF-8",
+      "truncated": false,
+      "format": "xml",
+      "root": "rss",
+      "items": 14,
+      "item_schemas": [
+        [
+          "guid",
+          "title",
+          "link",
+          "description"
+        ]
+      ],
+      "sample_url": "https://www.golangprojects.com/golang-go-job-gxj-Remote-Software-Developer-Go-Security-Analytics-Berlin-RedMimicry-remotework.html",
+      "sample_date": null,
+      "description_characters": 276
+    },
+    {
+      "name": "PythonJobsHQ",
+      "url": "https://www.pythonjobshq.com/jobs.rss",
+      "basis": "linked feed",
+      "status": 200,
+      "final_url": "https://www.pythonjobshq.com/jobs.rss",
+      "content_type": "application/rss+xml; charset=utf-8",
+      "truncated": false,
+      "format": "xml",
+      "root": "rss",
+      "items": 0,
+      "item_schemas": []
+    },
+    {
+      "name": "DevOpsJobs",
+      "url": "https://devopsjobs.io/jobs.rss",
+      "basis": "linked feed",
+      "status": 200,
+      "final_url": "https://devopsjobs.io/jobs.rss",
+      "content_type": "application/rss+xml; charset=utf-8",
+      "truncated": true,
+      "format": "unparsed-xml",
+      "title": "DevOps Jobs RSS Feed",
+      "note": "Initial bounded 5 MB read truncated valid RSS. Follow-up read of 7,884,250 bytes parsed 1,000 items; see job-source-followups.json."
+    },
+    {
+      "name": "Freelancer RSS",
+      "url": "https://www.freelancer.com/rss.xml",
+      "basis": "linked feed; semantics unverified",
+      "status": 200,
+      "final_url": "https://www.freelancer.com/rss.xml",
+      "content_type": "text/xml;charset=UTF-8",
+      "truncated": false,
+      "format": "xml",
+      "root": "rss",
+      "items": 20,
+      "item_schemas": [
+        [
+          "title",
+          "link",
+          "description",
+          "pubDate",
+          "guid",
+          "category",
+          "category",
+          "{http://www.google.com/coop/namespace}keyword",
+          "{http://www.google.com/coop/namespace}keyword",
+          "{http://www.google.com/coop/namespace}keyword",
+          "{http://www.google.com/coop/namespace}keyword",
+          "{http://www.google.com/coop/namespace}keyword",
+          "{http://www.google.com/coop/namespace}keyword",
+          "{http://www.google.com/coop/namespace}keyword",
+          "{http://www.google.com/coop/namespace}keyword",
+          "{http://www.google.com/coop/namespace}keyword",
+          "{http://www.google.com/coop/namespace}keyword",
+          "{http://www.google.com/coop/namespace}keyword",
+          "{http://www.google.com/coop/namespace}keyword",
+          "{http://www.google.com/coop/namespace}keyword",
+          "{http://www.google.com/coop/namespace}keyword",
+          "{http://www.google.com/coop/namespace}keyword",
+          "{http://www.google.com/coop/namespace}keyword",
+          "{http://www.google.com/coop/namespace}keyword",
+          "{http://www.google.com/coop/namespace}keyword",
+          "{http://www.google.com/coop/namespace}keyword",
+          "{http://www.google.com/coop/namespace}keyword",
+          "{http://www.google.com/coop/namespace}keyword",
+          "{http://www.google.com/coop/namespace}keyword",
+          "{http://www.google.com/coop/namespace}keyword",
+          "{http://www.google.com/coop/namespace}keyword"
+        ]
+      ],
+      "sample_url": "https://www.freelancer.com/projects/compliance/Governance-Analyst-Interview-Tutoring.html",
+      "sample_date": "Tue, 22 Sep 2026 09:36:13 -0400",
+      "description_characters": 270
+    },
+    {
+      "name": "Himalayas browse",
+      "url": "https://himalayas.app/jobs/api?limit=1",
+      "basis": "documented",
+      "status": 200,
+      "final_url": "https://himalayas.app/jobs/api?limit=1",
+      "content_type": "application/json",
+      "truncated": false,
+      "format": "json",
+      "top_level_keys": [
+        "comments",
+        "updatedAt",
+        "offset",
+        "limit",
+        "totalCount",
+        "nextCursor",
+        "jobs"
+      ],
+      "items": 1,
+      "item_schemas": [
+        [
+          "title",
+          "excerpt",
+          "companyName",
+          "companySlug",
+          "companyLogo",
+          "employmentType",
+          "minSalary",
+          "maxSalary",
+          "salaryPeriod",
+          "seniority",
+          "currency",
+          "locationRestrictions",
+          "timezoneRestrictions",
+          "categories",
+          "parentCategories",
+          "description",
+          "pubDate",
+          "expiryDate",
+          "applicationLink",
+          "guid"
+        ]
+      ],
+      "pagination": {
+        "nextCursor": "MjAyNi0wOS0yMlQwNDowNzoxMi4yMDQ4NTNafDIyNjQ2ODc",
+        "totalCount": 104772,
+        "limit": 1,
+        "offset": 0
+      }
+    },
+    {
+      "name": "Himalayas spec",
+      "url": "https://himalayas.app/docs/openapi.json",
+      "basis": "documented",
+      "status": 200,
+      "final_url": "https://himalayas.app/docs/openapi.json",
+      "content_type": "application/json; charset=UTF-8",
+      "truncated": false,
+      "format": "json",
+      "top_level_keys": [
+        "openapi",
+        "info",
+        "externalDocs",
+        "tags",
+        "servers",
+        "paths",
+        "components"
+      ],
+      "items": 0,
+      "item_schemas": [],
+      "pagination": {}
+    },
+    {
+      "name": "Arbeitnow",
+      "url": "https://www.arbeitnow.com/api/job-board-api",
+      "basis": "documented",
+      "status": 200,
+      "final_url": "https://www.arbeitnow.com/api/job-board-api",
+      "content_type": "application/json",
+      "truncated": false,
+      "format": "json",
+      "top_level_keys": [
+        "data",
+        "links",
+        "meta"
+      ],
+      "items": 250,
+      "item_schemas": [
+        [
+          "slug",
+          "company_name",
+          "title",
+          "description",
+          "remote",
+          "url",
+          "tags",
+          "job_types",
+          "location",
+          "created_at"
+        ],
+        [
+          "slug",
+          "company_name",
+          "title",
+          "description",
+          "remote",
+          "url",
+          "tags",
+          "job_types",
+          "location",
+          "created_at"
+        ]
+      ],
+      "pagination": {
+        "links": {
+          "first": "https://www.arbeitnow.com/api/job-board-api?page=1",
+          "last": null,
+          "prev": null,
+          "next": "https://www.arbeitnow.com/api/job-board-api?page=2"
+        },
+        "meta": {
+          "current_page": 1,
+          "current_page_url": "https://www.arbeitnow.com/api/job-board-api?page=1",
+          "from": 1,
+          "path": "https://www.arbeitnow.com/api/job-board-api",
+          "per_page": 250,
+          "to": 250,
+          "terms": "This is a free public API for jobs, please do not abuse. I would appreciate linking back to the site. By using the API, you agree to the terms of service present on Arbeitnow.com",
+          "info": "Jobs are updated every hour and order by the `created_at` timestamp. Use `?page=` to paginate. Read more information here: https://www.arbeitnow.com/blog/job-board-api"
+        }
+      }
+    },
+    {
+      "name": "Arbeitnow UK",
+      "url": "https://www.arbeitnow.co.uk/api/job-board-api",
+      "basis": "documented",
+      "status": 200,
+      "final_url": "https://www.arbeitnow.co.uk/api/job-board-api",
+      "content_type": "application/json",
+      "truncated": false,
+      "format": "json",
+      "top_level_keys": [
+        "data",
+        "links",
+        "meta"
+      ],
+      "items": 100,
+      "item_schemas": [
+        [
+          "slug",
+          "company_name",
+          "title",
+          "description",
+          "remote",
+          "url",
+          "tags",
+          "job_types",
+          "location",
+          "created_at"
+        ],
+        [
+          "slug",
+          "company_name",
+          "title",
+          "description",
+          "remote",
+          "url",
+          "tags",
+          "job_types",
+          "location",
+          "created_at"
+        ]
+      ],
+      "pagination": {
+        "links": {
+          "first": "https://www.arbeitnow.co.uk/api/job-board-api?page=1",
+          "last": null,
+          "prev": null,
+          "next": "https://www.arbeitnow.co.uk/api/job-board-api?page=2"
+        },
+        "meta": {
+          "current_page": 1,
+          "current_page_url": "https://www.arbeitnow.co.uk/api/job-board-api?page=1",
+          "from": 1,
+          "path": "https://www.arbeitnow.co.uk/api/job-board-api",
+          "per_page": 100,
+          "to": 100,
+          "terms": "This is a free public API for jobs, please do not abuse. I would appreciate linking back to the site. By using the API, you agree to the terms of service present on Arbeitnow.com",
+          "info": "Jobs are updated every hour and order by the `created_at` timestamp. Use `?page=` to paginate. Read more information here: https://www.arbeitnow.com/blog/job-board-api"
+        }
+      }
+    },
+    {
+      "name": "Muse",
+      "url": "https://www.themuse.com/api/public/jobs?page=0",
+      "basis": "documented",
+      "status": 200,
+      "final_url": "https://www.themuse.com/api/public/jobs?page=0",
+      "content_type": "application/json; charset=UTF-8",
+      "truncated": false,
+      "format": "json",
+      "top_level_keys": [
+        "page",
+        "page_count",
+        "items_per_page",
+        "took",
+        "timed_out",
+        "total",
+        "results",
+        "aggregations"
+      ],
+      "items": 20,
+      "item_schemas": [
+        [
+          "contents",
+          "name",
+          "type",
+          "publication_date",
+          "short_name",
+          "model_type",
+          "id",
+          "locations",
+          "categories",
+          "levels",
+          "tags",
+          "refs",
+          "company"
+        ],
+        [
+          "contents",
+          "name",
+          "type",
+          "publication_date",
+          "short_name",
+          "model_type",
+          "id",
+          "locations",
+          "categories",
+          "levels",
+          "tags",
+          "refs",
+          "company"
+        ]
+      ],
+      "pagination": {
+        "page": 0,
+        "page_count": 20649
+      }
+    },
+    {
+      "name": "Remotive",
+      "url": "https://remotive.com/api/remote-jobs?limit=1",
+      "basis": "documented",
+      "status": 200,
+      "final_url": "https://remotive.com/api/remote-jobs?limit=1",
+      "content_type": "application/json; charset=utf-8",
+      "truncated": false,
+      "format": "json",
+      "top_level_keys": [
+        "00-warning",
+        "0-legal-notice",
+        "job-count",
+        "total-job-count",
+        "jobs"
+      ],
+      "items": 18,
+      "item_schemas": [
+        [
+          "id",
+          "url",
+          "title",
+          "company_name",
+          "company_logo",
+          "category",
+          "tags",
+          "job_type",
+          "publication_date",
+          "candidate_required_location",
+          "salary",
+          "description"
+        ],
+        [
+          "id",
+          "url",
+          "title",
+          "company_name",
+          "company_logo",
+          "category",
+          "tags",
+          "job_type",
+          "publication_date",
+          "candidate_required_location",
+          "salary",
+          "description",
+          "company_logo_url"
+        ]
+      ],
+      "pagination": {}
+    },
+    {
+      "name": "4dayweek candidate API",
+      "url": "https://4dayweek.io/api/jobs?page=1",
+      "basis": "candidate; not yet official",
+      "status": 200,
+      "final_url": "https://4dayweek.io/api/jobs?page=1",
+      "content_type": "application/json",
+      "truncated": false,
+      "format": "json",
+      "top_level_keys": [
+        "jobs",
+        "total",
+        "page",
+        "has_more"
+      ],
+      "items": 25,
+      "item_schemas": [
+        [
+          "id",
+          "title",
+          "slug",
+          "company_name",
+          "company_id",
+          "work_arrangement",
+          "locations",
+          "posted",
+          "inserted",
+          "schedule_type",
+          "category",
+          "level",
+          "is_expired",
+          "company",
+          "work_life_score"
+        ],
+        [
+          "id",
+          "title",
+          "slug",
+          "company_name",
+          "company_id",
+          "work_arrangement",
+          "locations",
+          "posted",
+          "inserted",
+          "schedule_type",
+          "category",
+          "level",
+          "is_expired",
+          "company",
+          "work_life_score"
+        ]
+      ],
+      "pagination": {
+        "page": 1
+      }
+    },
+    {
+      "name": "SkipTheDrive candidate RSS",
+      "url": "https://www.skipthedrive.com/feed/",
+      "basis": "candidate Wordpress feed",
+      "status": 200,
+      "final_url": "https://www.skipthedrive.com/",
+      "content_type": "text/html; charset=UTF-8",
+      "truncated": false,
+      "format": "html",
+      "title": "Find remote jobs on SkipTheDrive - Work From Home"
+    },
+    {
+      "name": "EU Startups board",
+      "url": "https://www.eu-startups.com/jobs/",
+      "basis": "candidate board path",
+      "status": 200,
+      "final_url": "https://www.eu-startups.com/directory/jobs-in-education/",
+      "content_type": "text/html; charset=UTF-8",
+      "truncated": false,
+      "format": "html",
+      "title": "Jobs In Education | EU-Startups"
+    },
+    {
+      "name": "ReactJobBoard candidate RSS",
+      "url": "https://reactjobboard.com/feed/",
+      "basis": "candidate Wordpress feed",
+      "status": 404,
+      "error": "Not Found"
+    },
+    {
+      "name": "RemoteHabits board",
+      "url": "https://remotehabits.com/jobs/",
+      "basis": "candidate jobs path",
+      "status": 200,
+      "final_url": "https://remotehabits.com/jobs/",
+      "content_type": "text/html; charset=UTF-8",
+      "truncated": false,
+      "format": "html",
+      "title": "Remote Jobs \u2014 Remote Habits"
+    },
+    {
+      "name": "Remote OK RSS",
+      "url": "https://remoteok.com/remote-jobs.rss",
+      "basis": "candidate feed",
+      "status": 410,
+      "error": "Gone"
+    },
+    {
+      "name": "Landing Jobs listing",
+      "url": "https://landing.jobs/jobs",
+      "basis": "candidate jobs path",
+      "status": 200,
+      "final_url": "https://landing.jobs/jobs",
+      "content_type": "text/html; charset=utf-8",
+      "truncated": false,
+      "format": "html",
+      "title": "Tech Jobs | Find Your Next Role | Landing.Jobs"
+    },
+    {
+      "name": "Arc remote listings",
+      "url": "https://arc.dev/remote-jobs",
+      "basis": "candidate jobs path",
+      "status": 200,
+      "final_url": "https://arc.dev/remote-jobs",
+      "content_type": "text/html; charset=utf-8",
+      "truncated": false,
+      "format": "html",
+      "root": "html",
+      "items": 0,
+      "item_schemas": []
+    },
+    {
+      "name": "Braintrust listings",
+      "url": "https://app.usebraintrust.com/jobs/",
+      "basis": "candidate jobs path",
+      "status": 200,
+      "final_url": "https://app.usebraintrust.com/jobs/",
+      "content_type": "text/html; charset=utf-8",
+      "truncated": false,
+      "format": "html",
+      "title": "Braintrust | Transforming Hiring with AI Recruiting"
+    },
+    {
+      "name": "Foorilla API docs",
+      "url": "https://foorilla.com/api/list/",
+      "basis": "linked from site",
+      "status": 200,
+      "final_url": "https://foorilla.com/api/",
+      "content_type": "text/html; charset=utf-8",
+      "truncated": false,
+      "format": "html",
+      "title": "all API"
+    }
+  ]
+}
