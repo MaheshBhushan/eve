@@ -14,7 +14,7 @@ import type {
 
 const here = dirname(fileURLToPath(import.meta.url));
 
-export function openDb(path: string): DatabaseSync {
+export function openDb(path: string, busyTimeoutMs = 5000): DatabaseSync {
   const db = new DatabaseSync(path);
   // The poller and the bot hold this file open at the same time — the poller
   // writes rows and queues events, the bot reads the queue and stamps
@@ -23,7 +23,7 @@ export function openDb(path: string): DatabaseSync {
   // busy_timeout first: switching journal mode takes a lock of its own, and
   // three processes opening this file within the same second (a timer-fired
   // poll plus a bot and dashboard restart) hit that lock without it.
-  db.exec("PRAGMA busy_timeout = 5000");
+  db.exec(`PRAGMA busy_timeout = ${Math.max(0, Math.floor(busyTimeoutMs))}`);
   db.exec("PRAGMA journal_mode = WAL");
   // Postings and events hang off sources by FK; without this pragma SQLite
   // ignores the ON DELETE CASCADE and removing a source orphans its rows.
@@ -63,6 +63,7 @@ function migrate(db: DatabaseSync): void {
     if (!postingCols.has(name)) db.exec(`ALTER TABLE postings ADD COLUMN ${name} ${type}`);
   }
   const stale = db.prepare("SELECT id, title, description FROM postings WHERE roleVersion IS NULL OR roleVersion != ?").all(ROLE_FILTER_VERSION);
+  if (stale.length === 0) return; // Opening an up-to-date database needs no writer lock.
   db.exec('BEGIN IMMEDIATE');
   try {
     for (const row of stale) updateRole(db, Number(row.id), String(row.title), row.description as string | null);
@@ -618,6 +619,6 @@ export function setJevFit(db: DatabaseSync, id: number, fit: import("./jev.ts").
     fit_version=?, fit_retry_after=NULL, fit_scored_at=datetime('now') WHERE id=?`)
     .run(fit.score, fit.reason, fit.confidence, Number(fit.eligible), fit.details, version, id);
 }
-export function deferFit(db: DatabaseSync, id: number): void {
-  db.prepare("UPDATE postings SET fit_retry_after=datetime('now', '+6 hours') WHERE id=?").run(id);
+export function deferFit(db: DatabaseSync, id: number, hours = 6): void {
+  db.prepare("UPDATE postings SET fit_retry_after=datetime('now', ?) WHERE id=?").run(`+${hours} hours`, id);
 }

@@ -91,6 +91,10 @@ export interface Config {
   dashboardPort: number;
   /** Bind address for the dashboard server. Loopback by default. */
   dashboardBind: string;
+
+  /* ------------------------------------------------------------ stats --- */
+  /** IANA timezone used for `/stats period:today` boundaries. */
+  statsTimezone: string;
 }
 
 function req(name: string): string {
@@ -116,6 +120,12 @@ export function loadConfig(): Config {
       : process.env.RADAR_MATCHES_ONLY === "true";
   if (matchesOnly && fitProvider !== "typesafe") throw new Error("Matches-only mode requires typesafe scoring with confidence");
   if (fitProvider === "typesafe" && (!process.env.TYPESAFE_API_KEY || !process.env.RADAR_PROFILE)) throw new Error("TypeSafe scoring requires TYPESAFE_API_KEY and RADAR_PROFILE");
+  const statsTimezone = process.env.RADAR_STATS_TIMEZONE ?? "Europe/Berlin";
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: statsTimezone });
+  } catch {
+    throw new Error(`RADAR_STATS_TIMEZONE is not a valid IANA timezone: ${statsTimezone}`);
+  }
   return {
     fitProvider, fitConfidence, fitConcurrency, matchesOnly,
     dbPath: process.env.RADAR_DB ?? "eve.db",
@@ -146,5 +156,6 @@ export function loadConfig(): Config {
 
     dashboardPort: Number(process.env.RADAR_DASHBOARD_PORT ?? 8787),
     dashboardBind: process.env.RADAR_DASHBOARD_BIND ?? "127.0.0.1",
+    statsTimezone,
   };
 }

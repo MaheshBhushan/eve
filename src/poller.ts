@@ -38,7 +38,8 @@ import {
   sweepDeadlines,
   sweepStale,
 } from "./events.ts";
-import { jevContext, scoreJev, isMatch, allowedByFilters } from "./jev.ts";
+import { jevContext, isMatch } from "./jev.ts";
+import { ensureTelemetryStart, evaluatePosting, recoverStaleAttempts } from "./jev-service.ts";
 import { enrichDescription } from "./enrich.ts";
 import { scoreFit } from "./fit.ts";
 import { HttpError } from "./http.ts";
@@ -577,30 +578,32 @@ async function scoreProfileCycle(db: DatabaseSync, cfg: Config): Promise<number>
   const context = await jevContext(cfg);
   const key = process.env.TYPESAFE_API_KEY;
   if (!context || !key) return 0;
+  ensureTelemetryStart(db);
+  recoverStaleAttempts(db);
   const work = listUnscoredPostings(db, cfg.fitBudget, context.version);
   const filters = loadFilters(cfg.filtersPath);
   const sources = new Map(listSources(db).map(source => [source.id, source]));
-  let cursor = 0, scored = 0;
+  let cursor = 0, scored = 0, configError = false;
   await Promise.all(Array.from({length: cfg.fitConcurrency ?? 3}, async () => {
-    while (cursor < work.length) {
+    while (cursor < work.length && !configError) {
       const posting = work[cursor++]!;
       const source = sources.get(posting.source_id);
-      if (!source || !allowedByFilters(posting, source, filters)) {
-        setJevFit(db, posting.id, {score:0, confidence:1, eligible:false, reason:"Excluded by current discovery rules", details:"{}"}, context.version);
-        continue;
+      if (!source) continue;
+      const evaluation = await evaluatePosting(db, cfg, context, key, posting, {
+        origin: "poller",
+        source,
+        filters,
+        enrich: enrichDescription,
+      });
+      // A 401/4xx is a configuration problem, not 97 more failing jobs.
+      if (evaluation.configError) {
+        configError = true;
+        break;
       }
-      if (!posting.description?.trim()) {
-        const description = await enrichDescription(posting);
-        if (!description) { deferFit(db, posting.id); continue; }
-        db.prepare("UPDATE postings SET description=? WHERE id=?").run(description, posting.id);
-        posting.description = description;
-      }
-      const fit = await scoreJev(posting, context, key);
-      if (!fit) { deferFit(db, posting.id); continue; }
-      setJevFit(db, posting.id, fit, context.version);
-      scored++;
+      if (evaluation.status === "model_result") scored++;
     }
   }));
+  if (configError) console.error("[poll] scoring stopped early: Jev configuration failure");
   // Also reconsider stored results when thresholds change, without another API call.
   const candidates = db.prepare("SELECT * FROM postings WHERE state='open' AND fit_version=? AND fit_notified_at IS NULL AND fit_eligible=1").all(context.version) as unknown as import("./types.ts").PostingRow[];
   for (const posting of candidates) {

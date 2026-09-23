@@ -29,7 +29,7 @@ function setup(t: {after(fn: () => void): void}) {
   const db = openDb(':memory:');
   const source = addSource(db,'linkedin','software@Worldwide','Global');
   const id = upsertPosting(db,{source_id:source.id,key:'same-job',external_id:'123',title:fetched.title,company:fetched.company,location:fetched.location,remote:1,department:null,url:fetched.url,posted_at:new Date().toISOString(),posted_at_exact:0,closes_at:null,description:fetched.description});
-  const cfg: Config = {dbPath:':memory:',discordToken:'test',discordChannelId:'test',digestThreshold:5,pingTarget:'',profilePath,fitModel:'jev-1.13.0',fitThreshold:75,fitConfidence:0.8,fitProvider:'typesafe',matchesOnly:true,fitConcurrency:2,fitBudget:10,freshHours:48,freshPingHours:3,alertMaxAgeHours:24,staleDays:7,deadlineDays:3,maxFailures:5,massDelistRatio:0.5,filtersPath:null,browserUseDir:null,browserUsePython:'python3',browserTimeoutMin:10,dashboardPort:8787,dashboardBind:'127.0.0.1'};
+  const cfg: Config = {dbPath:':memory:',discordToken:'test',discordChannelId:'test',digestThreshold:5,pingTarget:'',profilePath,fitModel:'jev-1.13.0',fitThreshold:75,fitConfidence:0.8,fitProvider:'typesafe',matchesOnly:true,fitConcurrency:2,fitBudget:10,freshHours:48,freshPingHours:3,alertMaxAgeHours:24,staleDays:7,deadlineDays:3,maxFailures:5,massDelistRatio:0.5,filtersPath:null,browserUseDir:null,browserUsePython:'python3',browserTimeoutMin:10,dashboardPort:8787,dashboardBind:'127.0.0.1',statsTimezone:'Europe/Berlin'};
   t.after(() => {db.close();rmSync(dir,{recursive:true,force:true});});
   return {db,id,cfg,profilePath,source};
 }

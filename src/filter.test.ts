@@ -443,6 +443,7 @@ function cfg(over: Partial<Config> = {}): Config {
     browserTimeoutMin: 10,
     dashboardPort: 8787,
     dashboardBind: "127.0.0.1",
+    statsTimezone: "Europe/Berlin",
     ...over,
   };
 }

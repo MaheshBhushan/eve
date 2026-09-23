@@ -127,3 +127,90 @@ CREATE TABLE IF NOT EXISTS domain_state (
   reason          TEXT,
   updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- ---------------------------------------------------------------------------
+-- Jev usage telemetry. Additive: these tables record what was asked of the
+-- model and what came back; they never change matching behaviour, and the
+-- existing postings.fit_* columns remain the current-result snapshot.
+--
+-- Three units, deliberately separate (see the optimization handoff):
+--   evaluation  = one requested assessment of one posting (logical)
+--   attempt     = one HTTP invocation of the TypeSafe transport (physical)
+--   cache entry = one validated answer set reusable for identical input
+-- A timeout is not a rejection, a cache hit is not a fresh call, and NULL
+-- usage means unknown, never zero.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS jev_evaluations (
+  id                   TEXT PRIMARY KEY,
+  -- SET NULL, not CASCADE: usage history must survive /unwatch and cleanup.
+  posting_id           INTEGER REFERENCES postings(id) ON DELETE SET NULL,
+  posting_key          TEXT NOT NULL,
+  source_kind          TEXT NOT NULL,
+  -- Hash of the adapter ident (search queries are not stored verbatim).
+  source_ident_hash    TEXT,
+  origin               TEXT NOT NULL,   -- poller | manual_fit
+  requested_at_ms      INTEGER NOT NULL,
+  completed_at_ms      INTEGER,
+  input_hash           TEXT,
+  profile_hash         TEXT NOT NULL,
+  inference_version    TEXT NOT NULL,
+  policy_version       TEXT NOT NULL,
+  requested_model      TEXT NOT NULL,
+  result_model         TEXT,
+  -- pending | model_result | cache_hit | local_exclusion |
+  -- evidence_deferred | budget_deferred | error | interrupted
+  status               TEXT NOT NULL,
+  -- match | rejected | review_needed
+  outcome              TEXT,
+  reason_codes_json    TEXT NOT NULL DEFAULT '[]',
+  fit_score            REAL,
+  confidence           REAL,
+  eligible             INTEGER,
+  fit_threshold        REAL NOT NULL,
+  confidence_threshold REAL NOT NULL,
+  cache_entry_hash     TEXT,
+  error_kind           TEXT
+);
+CREATE INDEX IF NOT EXISTS jev_eval_requested_idx ON jev_evaluations (requested_at_ms);
+CREATE INDEX IF NOT EXISTS jev_eval_input_idx     ON jev_evaluations (input_hash);
+
+CREATE TABLE IF NOT EXISTS jev_attempts (
+  id                    TEXT PRIMARY KEY,
+  evaluation_id         TEXT NOT NULL,
+  attempt_number        INTEGER NOT NULL,
+  input_hash            TEXT NOT NULL,
+  started_at_ms         INTEGER NOT NULL,
+  finished_at_ms        INTEGER,
+  duration_ms           INTEGER,
+  -- reserved | started | finished | unknown
+  state                 TEXT NOT NULL,
+  http_status           INTEGER,
+  -- success | http_error | timeout | transport_error | invalid_response
+  outcome               TEXT,
+  error_code            TEXT,
+  retry_after_ms        INTEGER,
+  provider_request_id   TEXT,
+  requested_model       TEXT NOT NULL,
+  returned_model        TEXT,
+  input_tokens          INTEGER,
+  output_tokens         INTEGER,
+  -- reported | missing | invalid
+  usage_status          TEXT NOT NULL,
+  request_bytes         INTEGER NOT NULL,
+  profile_chars         INTEGER NOT NULL,
+  description_chars     INTEGER NOT NULL,
+  questions_chars       INTEGER NOT NULL,
+  rate_version          TEXT,
+  estimated_cost_microunits INTEGER,
+  UNIQUE (evaluation_id, attempt_number)
+);
+CREATE INDEX IF NOT EXISTS jev_attempt_started_idx ON jev_attempts (started_at_ms);
+CREATE INDEX IF NOT EXISTS jev_attempt_eval_idx    ON jev_attempts (evaluation_id);
+
+-- One-row key/value store for boundaries that must never reset on restart or
+-- upgrade: when tracking began, and the telemetry schema revision.
+CREATE TABLE IF NOT EXISTS jev_meta (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
