@@ -14,6 +14,7 @@ import {
   claimPosting,
   getPosting,
   getSource,
+  getSourceById,
   listOpenPostings,
   listSources,
   openDb,
@@ -26,9 +27,18 @@ import {
 } from "./db.ts";
 import { drain } from "./delivery.ts";
 import { applyFilter, filterHash, loadFilters, specFor } from "./filter.ts";
-import { jevContext, scoreJev } from "./jev.ts";
-import { setJevFit } from "./db.ts";
+import { jevContext } from "./jev.ts";
+import { ensureTelemetryStart, evaluatePosting, recoverStaleAttempts, telemetryStartMs } from "./jev-service.ts";
 import { scoreFit } from "./fit.ts";
+import {
+  jevInventoryExtras,
+  jevStats,
+  jevTelemetry,
+  renderStatsReport,
+  statsWindow,
+  type StatsPeriod,
+  type StatsView,
+} from "./stats.ts";
 import { postingKey } from "./key.ts";
 import { digestEmbed, postingEmbed, trunc, type DigestRow } from "./render.ts";
 import { adapterFor, parseRef } from "./sources/registry.ts";
@@ -39,6 +49,30 @@ import type { PostingUpsert, SourceRow } from "./types.ts";
 const SEED_DIGEST_COUNT = 8;
 
 export const commands = [
+  new SlashCommandBuilder()
+    .setName("stats")
+    .setDescription("Jev usage, outcomes and the waiting queue")
+    .addStringOption((o) =>
+      o
+        .setName("period")
+        .setDescription("Time window (default: last 24 hours)")
+        .addChoices(
+          { name: "last 24 hours", value: "24h" },
+          { name: "today (local)", value: "today" },
+          { name: "last 7 days", value: "7d" },
+          { name: "since tracking began", value: "all" },
+        ),
+    )
+    .addStringOption((o) =>
+      o
+        .setName("view")
+        .setDescription("Which report (default: summary)")
+        .addChoices(
+          { name: "summary", value: "summary" },
+          { name: "errors", value: "errors" },
+          { name: "by source", value: "sources" },
+        ),
+    ),
   new SlashCommandBuilder()
     .setName("watch")
     .setDescription("Track a company job board for openings, closures, reposts and fit")
@@ -289,6 +323,23 @@ async function onApplied(i: ChatInputCommandInteraction, db: DatabaseSync) {
   );
 }
 
+async function onStats(i: ChatInputCommandInteraction, db: DatabaseSync, cfg: Config) {
+  if (cfg.fitProvider !== "typesafe") return i.editReply("Jev scoring is not enabled.");
+  const context = await jevContext(cfg);
+  if (!context) return i.editReply("Jev stats need a readable configured profile.");
+  const period = (i.options.getString("period") ?? "24h") as StatsPeriod;
+  const view = (i.options.getString("view") ?? "summary") as StatsView;
+  const nowMs = Date.now();
+  // Read-only: no model call is made from /stats, and the ledger queries are
+  // bounded to one window over indexed columns.
+  const window = statsWindow(period, nowMs, cfg.statsTimezone, telemetryStartMs(db));
+  const telemetry = jevTelemetry(db, window);
+  const inventory = jevStats(db, cfg, context.version);
+  const extras = jevInventoryExtras(db, context.version);
+  const text = renderStatsReport({ window, telemetry, inventory, extras, cfg, view, nowMs });
+  return i.editReply(text.length > 1990 ? `${text.slice(0, 1980)}…` : text);
+}
+
 async function onFit(i: ChatInputCommandInteraction, db: DatabaseSync, cfg: Config) {
   const id = i.options.getInteger("id", true);
   const posting = getPosting(db, id);
@@ -306,9 +357,22 @@ async function onFit(i: ChatInputCommandInteraction, db: DatabaseSync, cfg: Conf
   // good for 15 minutes, so this has ample room even on a slow model.
   if (cfg.fitProvider === "typesafe") {
     const context = await jevContext(cfg);
-    const result = context && process.env.TYPESAFE_API_KEY ? await scoreJev(posting, context, process.env.TYPESAFE_API_KEY) : null;
-    if (!result || !context) return i.editReply(`Couldn't score #${id} — try again later.`);
-    setJevFit(db, id, result, context.version);
+    const source = getSourceById(db, posting.source_id);
+    const key = process.env.TYPESAFE_API_KEY;
+    if (!context || !source || !key) return i.editReply(`Couldn't score #${id} — try again later.`);
+    ensureTelemetryStart(db);
+    // Same accounted path as the poller, so manual calls appear in /stats.
+    const evaluation = await evaluatePosting(db, cfg, context, key, posting, {
+      origin: "manual_fit",
+      source,
+      filters: loadFilters(cfg.filtersPath),
+    });
+    if (evaluation.status !== "model_result" || !evaluation.result) {
+      return i.editReply(
+        `Couldn't score #${id} — ${evaluation.errorKind ?? evaluation.status.replace(/_/g, " ")}.`,
+      );
+    }
+    const result = evaluation.result;
     return i.editReply(`Fit for #${id}: **${result.score}/100**, confidence **${Math.round(result.confidence * 100)}%** — ${result.reason}`);
   }
   const result = await scoreFit(posting, cfg.profilePath, cfg.fitModel);
@@ -319,12 +383,18 @@ async function onFit(i: ChatInputCommandInteraction, db: DatabaseSync, cfg: Conf
 }
 
 const cfg = loadConfig();
-const db = openDb(cfg.dbPath);
+// SQLite is synchronous: long lock waits block Discord interaction acknowledgements.
+const db = openDb(cfg.dbPath, 100);
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 client.once(Events.ClientReady, async (c) => {
   console.log(`[bot] ready as ${c.user.tag}`);
   const channel = (await c.channels.fetch(cfg.discordChannelId)) as TextChannel;
+
+  // Usage tracking starts once and never resets; attempts left open by a crash
+  // become unknown rather than fabricated successes or failures.
+  ensureTelemetryStart(db);
+  recoverStaleAttempts(db);
 
   // Drain on connect: anything the poller queued while the gateway was down is
   // still sitting in the events table, which is the point of the split.
@@ -364,11 +434,12 @@ client.once(Events.ClientReady, async (c) => {
 
 client.on(Events.InteractionCreate, async (i) => {
   if (!i.isChatInputCommand()) return;
-  await i.deferReply();
   try {
+    await i.deferReply();
     if (i.commandName === "watch") await onWatch(i, db);
     else if (i.commandName === "unwatch") await onUnwatch(i, db);
     else if (i.commandName === "boards") await onBoards(i, db, cfg);
+    else if (i.commandName === "stats") await onStats(i, db, cfg);
     else if (i.commandName === "status") await onStatus(i, db);
     else if (i.commandName === "posting") await onPosting(i, db);
     else if (i.commandName === "claim") await onClaim(i, db);
@@ -376,7 +447,9 @@ client.on(Events.InteractionCreate, async (i) => {
     else if (i.commandName === "fit") await onFit(i, db, cfg);
   } catch (e) {
     console.error(`[bot] ${i.commandName} failed:`, e);
-    await i.editReply("That failed — check the logs.").catch(() => {});
+    const message = "That failed — please try again. Check the bot logs if it persists.";
+    if (i.deferred || i.replied) await i.editReply(message).catch(() => {});
+    else await i.reply({ content: message, ephemeral: true }).catch(() => {});
   }
 });
 

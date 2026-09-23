@@ -80,6 +80,7 @@ npm run poll
 | `/watch <board>` | Start tracking. `greenhouse:stripe`, `personio:pitch`, `arbeitsagentur:werkstudent@berlin+25`, or a board URL. Seeds the board silently first — see below. |
 | `/unwatch <board>` | Stop tracking and forget its postings. |
 | `/boards` | Every tracked board, its open count, and poll health (`ok`, `never polled`, failing, or `MUTED`). |
+| `/stats [period] [view]` | Jev usage and outcomes for `24h` (default), `today`, `7d` or `all`, in `summary`, `errors` or `sources` view. Period activity is a request ledger; the current-inventory block is a posting snapshot. Never calls the model. |
 | `/status [mine]` | Open postings, ranked by fit. `mine` restricts to postings you've claimed or applied to. |
 | `/posting <id>` | Full detail for one posting, including its stored description. |
 | `/claim <id> [release]` | Mark a posting as one you intend to apply to, or drop the claim. |
@@ -99,6 +100,18 @@ npm run poll
 | `posting_reposted` | A role you'd seen before is relisted under a new ATS id — the search reopened, or a previous hire fell through. |
 
 Plus a quiet `stale` nudge for a claim you never acted on. Alerts post fresh with a ping and are never batched; more than `RADAR_DIGEST_THRESHOLD` quiet postings updated in one cycle collapse into a single fit-ranked digest instead of flooding the channel one embed at a time.
+
+### Jev usage accounting
+
+`/stats` separates two things that used to be confused: what the **postings table** says right now (how many open jobs have a current verdict, how many match, how many await assessment) and what was actually **asked of the model** in a time window. The window numbers come from two additive tables: `jev_evaluations` (one row per logical assessment, whatever its outcome) and `jev_attempts` (one row per HTTP attempt, including retries). Units are kept distinct on purpose:
+
+- an **attempt** is a physical request; it is attributed to the window it *started* in, so a request that crosses the boundary stays in the earlier window;
+- a **logical evaluation** is one posting assessed against one fixed input and policy snapshot, attributed to when it was requested;
+- **local exclusions** (seniority/language rules, discovery filters) and **evidence deferrals** (missing or oversized descriptions) cost no request and are never counted as model calls;
+- `NULL` token usage means *unknown* — a timeout is not zero tokens and not a rejection. A 200 with a broken answer set still records whatever usage the provider reported;
+- an attempt left open by a crash becomes `unknown/interrupted` on the next start; it is never fabricated into a success or a failure.
+
+Both the poller and manual `/fit` go through the same accounted path (`src/jev-service.ts`). The first request-budget milestone is not implemented yet, so `/stats` says "request budget: not configured" and "cache hits: not enabled" rather than implying savings it cannot prove. `RADAR_STATS_TIMEZONE` (default `Europe/Berlin`) controls the `today` window; DST-transition days are computed from the actual offset, not a fixed one.
 
 A new posting's stated age decides what, if anything, it becomes: within `RADAR_FRESH_PING_HOURS` it is a `fresh_opening` alert; within `RADAR_ALERT_MAX_AGE_HOURS` it is a quiet `posting_opened`; older than that it is stored and shown on the dashboard but queues **no Discord event**. That last bucket exists because ranked search pages churn — a week-old posting drifting back into the visible window is not news, and before this gate roughly two thirds of LinkedIn "new" alerts were days old. A posting with no stated publish date is always a quiet opening: it can never claim to be fresh, and it is never silenced either.
 
