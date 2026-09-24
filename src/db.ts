@@ -605,13 +605,24 @@ export function pendingEvents(db: DatabaseSync, limit = 100, includeUnclassified
     .all(limit) as unknown as EventRow[];
 }
 
-/** Stamped only after Discord confirms — see the note on events.delivered_at. */
+/**
+ * Stamped only after Discord confirms — see the note on events.delivered_at.
+ *
+ * One transaction, not one write per event: a batch that sends fifty messages
+ * and then loses the write lock on the forty-ninth mark would re-send all fifty
+ * on the next tick. Atomic also means the ledger matches what the channel saw.
+ */
 export function markDelivered(db: DatabaseSync, ids: number[]): void {
   if (ids.length === 0) return;
-  const stmt = db.prepare(
-    "UPDATE events SET delivered_at = datetime('now') WHERE id = ?",
-  );
-  for (const id of ids) stmt.run(id);
+  const stmt = db.prepare("UPDATE events SET delivered_at = datetime('now') WHERE id = ?");
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    for (const id of ids) stmt.run(id);
+    db.exec("COMMIT");
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
+  }
 }
 
 export function setJevFit(db: DatabaseSync, id: number, fit: import("./jev.ts").JevResult, version: string): void {

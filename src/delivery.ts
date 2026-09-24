@@ -1,5 +1,6 @@
 import { isMatch, jevContext, allowedByFilters } from "./jev.ts";
 import { loadFilters } from "./filter.ts";
+import { setTimeout as delay } from "node:timers/promises";
 import type { DatabaseSync } from "node:sqlite";
 import type { TextChannel } from "discord.js";
 import type { Config } from "./config.ts";
@@ -121,8 +122,33 @@ export async function drain(
     }
   }
 
-  markDelivered(db, done);
+  await markDeliveredResilient(db, done);
   return done.length;
+}
+
+/**
+ * The messages are already in Discord; the only thing left is recording that.
+ * A write-lock collision here must not be allowed to leave the batch unmarked,
+ * because the next tick would re-send every message it could not record. Each
+ * attempt already waits up to the connection's busy timeout; the retries cover
+ * a poller cycle that is writing continuously for longer than that.
+ */
+async function markDeliveredResilient(db: DatabaseSync, ids: number[]): Promise<void> {
+  if (ids.length === 0) return;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      markDelivered(db, ids);
+      return;
+    } catch (e) {
+      const locked =
+        (e as { code?: string }).code === "ERR_SQLITE_ERROR" && /locked/.test((e as Error).message);
+      if (!locked || attempt >= 5) {
+        console.error("[deliver] could not record delivery; events stay pending and may repeat:", e);
+        throw e;
+      }
+      await delay(250 * attempt);
+    }
+  }
 }
 
 /**
