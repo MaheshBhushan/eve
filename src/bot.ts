@@ -383,53 +383,74 @@ async function onFit(i: ChatInputCommandInteraction, db: DatabaseSync, cfg: Conf
 }
 
 const cfg = loadConfig();
-// SQLite is synchronous: long lock waits block Discord interaction acknowledgements.
-const db = openDb(cfg.dbPath, 100);
+// SQLite is synchronous, and a long lock wait blocks whatever follows it. The
+// startup migration no longer takes a writer lock unless it has stale rows, and
+// every interaction is deferred before its handler touches the database — so a
+// few seconds here only delays post-acknowledgement work, while a 100 ms budget
+// made batch writes (markDelivered) fail whenever the poller was mid-cycle and
+// re-deliver everything on the next tick.
+const db = openDb(cfg.dbPath, 3000);
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+
+// discord.js re-emits an unhandled rejection from an event handler as an
+// 'error' event, and an 'error' event with no listener terminates the process.
+client.on(Events.Error, (e) => console.error("[bot] client error:", e));
 
 client.once(Events.ClientReady, async (c) => {
   console.log(`[bot] ready as ${c.user.tag}`);
-  const channel = (await c.channels.fetch(cfg.discordChannelId)) as TextChannel;
+  try {
+    const channel = (await c.channels.fetch(cfg.discordChannelId)) as TextChannel;
 
-  // Usage tracking starts once and never resets; attempts left open by a crash
-  // become unknown rather than fabricated successes or failures.
-  ensureTelemetryStart(db);
-  recoverStaleAttempts(db);
-
-  // Drain on connect: anything the poller queued while the gateway was down is
-  // still sitting in the events table, which is the point of the split.
-  const tick = async () => {
+    // Usage tracking starts once and never resets; attempts left open by a crash
+    // become unknown rather than fabricated successes or failures. Housekeeping
+    // is best-effort: a write-lock collision here must not stop delivery.
     try {
-      const n = await drain(db, channel, cfg);
-      if (n) console.log(`[bot] delivered ${n} events`);
+      ensureTelemetryStart(db);
+      recoverStaleAttempts(db);
     } catch (e) {
-      console.error("[bot] drain failed:", e);
+      console.warn("[bot] telemetry housekeeping skipped:", e);
     }
-  };
-  await tick();
 
-  // Resuming from suspend can leave the websocket open but dead: the process is
-  // healthy, so Restart=always never fires, and the bot sits there looking
-  // online while delivering nothing. discord.js reconnects on its own within a
-  // few seconds, so only a sustained outage counts. Exiting hands the problem
-  // to systemd, which knows how to start us cleanly.
-  let unhealthy = 0;
-  const HEALTH_STRIKES = 4; // ~2 minutes at the 30s tick
+    // Drain on connect: anything the poller queued while the gateway was down is
+    // still sitting in the events table, which is the point of the split.
+    const tick = async () => {
+      try {
+        const n = await drain(db, channel, cfg);
+        if (n) console.log(`[bot] delivered ${n} events`);
+      } catch (e) {
+        console.error("[bot] drain failed:", e);
+      }
+    };
+    await tick();
 
-  setInterval(async () => {
-    if (client.isReady()) {
-      unhealthy = 0;
-      await tick();
-      return;
-    }
-    if (++unhealthy >= HEALTH_STRIKES) {
-      console.error(
-        `[bot] gateway not ready for ${(HEALTH_STRIKES * 30) / 60} minutes; exiting for restart`,
-      );
-      process.exit(1);
-    }
-    console.warn(`[bot] gateway not ready (${unhealthy}/${HEALTH_STRIKES})`);
-  }, 30_000);
+    // Resuming from suspend can leave the websocket open but dead: the process is
+    // healthy, so Restart=always never fires, and the bot sits there looking
+    // online while delivering nothing. discord.js reconnects on its own within a
+    // few seconds, so only a sustained outage counts. Exiting hands the problem
+    // to systemd, which knows how to start us cleanly.
+    let unhealthy = 0;
+    const HEALTH_STRIKES = 4; // ~2 minutes at the 30s tick
+
+    setInterval(async () => {
+      if (client.isReady()) {
+        unhealthy = 0;
+        await tick();
+        return;
+      }
+      if (++unhealthy >= HEALTH_STRIKES) {
+        console.error(
+          `[bot] gateway not ready for ${(HEALTH_STRIKES * 30) / 60} minutes; exiting for restart`,
+        );
+        process.exit(1);
+      }
+      console.warn(`[bot] gateway not ready (${unhealthy}/${HEALTH_STRIKES})`);
+    }, 30_000);
+  } catch (e) {
+    // A startup failure must be loud but not leave a half-initialised process
+    // that looks online and delivers nothing: exit so systemd retries cleanly.
+    console.error("[bot] startup failed; exiting for a clean restart:", e);
+    process.exit(1);
+  }
 });
 
 client.on(Events.InteractionCreate, async (i) => {

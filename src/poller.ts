@@ -578,8 +578,14 @@ async function scoreProfileCycle(db: DatabaseSync, cfg: Config): Promise<number>
   const context = await jevContext(cfg);
   const key = process.env.TYPESAFE_API_KEY;
   if (!context || !key) return 0;
-  ensureTelemetryStart(db);
-  recoverStaleAttempts(db);
+  // Housekeeping is best-effort: a write-lock collision here must defer to the
+  // next cycle, not fail the whole poll.
+  try {
+    ensureTelemetryStart(db);
+    recoverStaleAttempts(db);
+  } catch (e) {
+    console.warn("[poll] telemetry housekeeping skipped:", e);
+  }
   const work = listUnscoredPostings(db, cfg.fitBudget, context.version);
   const filters = loadFilters(cfg.filtersPath);
   const sources = new Map(listSources(db).map(source => [source.id, source]));
