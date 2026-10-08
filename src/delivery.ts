@@ -1,3 +1,4 @@
+import { recentPostingSql } from "./recent.ts";
 import { isMatch, jevContext, allowedByFilters } from "./jev.ts";
 import { loadFilters } from "./filter.ts";
 import { setTimeout as delay } from "node:timers/promises";
@@ -18,6 +19,11 @@ const ALERTS = new Set<EventType>([
   "stale",
 ]);
 
+const DISCOVERY = "'posting_opened', 'fresh_opening', 'high_fit', 'posting_reposted'";
+const DEDUPED = `${DISCOVERY}, 'deadline'`;
+// Openings, reposts and fresh alerts are one announcement; the others stand alone.
+const dedupClass = (col: string) => `CASE WHEN ${col} IN ('high_fit', 'deadline') THEN ${col} ELSE 'opening' END`;
+
 /**
  * Drain the pending queue into the channel.
  *
@@ -30,6 +36,19 @@ export async function drain(
   channel: TextChannel,
   cfg: Config,
 ): Promise<number> {
+  // Expired discovery events must not flood Discord after an offline period.
+  db.prepare(`DELETE FROM events WHERE delivered_at IS NULL
+    AND type IN (${DISCOVERY})
+    AND posting_id IN (SELECT id FROM postings WHERE NOT (${recentPostingSql()}))`).run();
+  // One job listed on several boards shares a key; alert only the first copy.
+  db.prepare(`DELETE FROM events WHERE id IN (
+    SELECT e.id FROM events e JOIN postings p ON p.id = e.posting_id
+     WHERE e.delivered_at IS NULL AND e.type IN (${DEDUPED})
+       AND EXISTS (SELECT 1 FROM events o JOIN postings q ON q.id = o.posting_id
+                    WHERE q.key = p.key AND o.type IN (${DEDUPED}) AND o.id != e.id
+                      AND (q.id != p.id OR o.type = e.type)
+                      AND ${dedupClass("o.type")} = ${dedupClass("e.type")}
+                      AND (o.delivered_at IS NOT NULL OR o.id < e.id)))`).run();
   let events = pendingEvents(db, 200, cfg.matchesOnly);
   if (cfg.matchesOnly) {
     const filters = loadFilters(cfg.filtersPath);

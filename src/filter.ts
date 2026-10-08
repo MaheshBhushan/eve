@@ -37,6 +37,8 @@ export interface FilterSpec {
   remote?: "include" | "exclude" | "only";
   /** Reject postings whose stated publish date is older than this. Absent = no limit. */
   maxAgeDays?: number;
+  /** Also required: the posting must match at least one of these branches. */
+  anyOf?: FilterSpec[];
 }
 
 export interface FilterConfig {
@@ -209,6 +211,7 @@ export function matches(p: FetchedPosting, spec: FilterSpec): boolean {
     if (!Number.isNaN(t) && Date.now() - t > spec.maxAgeDays * DAY_MS) return false;
   }
 
+  if (spec.anyOf && !spec.anyOf.some((branch) => matches(p, branch))) return false;
   return true;
 }
 
@@ -256,6 +259,10 @@ function validateSpec(v: unknown, where: string, file: string): FilterSpec {
     if (typeof v.maxAgeDays !== "number" || !Number.isFinite(v.maxAgeDays) || v.maxAgeDays <= 0) {
       throw bad(file, `${where}.maxAgeDays must be a positive number of days`);
     }
+  }
+  if (v.anyOf !== undefined) {
+    if (!Array.isArray(v.anyOf) || v.anyOf.length === 0) throw bad(file, `${where}.anyOf must be a non-empty array`);
+    v.anyOf.forEach((branch, i) => validateSpec(branch, `${where}.anyOf[${i}]`, file));
   }
   return v as FilterSpec;
 }
@@ -366,6 +373,7 @@ export function filterHash(spec: FilterSpec): string {
   }
   if (spec.remote !== undefined) canon.remote = spec.remote;
   if (spec.maxAgeDays !== undefined) canon.maxAgeDays = spec.maxAgeDays;
+  if (spec.anyOf) canon.anyOf = spec.anyOf.map(filterHash);
 
   const ordered = Object.keys(canon)
     .sort()

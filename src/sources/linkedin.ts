@@ -1,3 +1,4 @@
+import { recentPostingSql } from "../recent.ts";
 /**
  * LinkedIn guest job-search adapter -- unauthenticated, direct HTTP.
  *
@@ -174,11 +175,18 @@ export function extractCards(html: string): string[] {
   return cards;
 }
 
+/** A `@Worldwide` search asks LinkedIn for remote roles only, so its cards are remote. */
+function remoteOnly(location: string): boolean {
+  return /^worldwide$/i.test(location.trim());
+}
+
 async function fetchPage(query: string, location: string, start: number): Promise<string> {
   const url = new URL(SEARCH_URL);
   url.searchParams.set("keywords", query);
   if (location) url.searchParams.set("location", location);
-  url.searchParams.set("f_TPR", "r604800");
+  recentPostingSql(); // Validate before constructing the upstream age filter.
+  url.searchParams.set("f_TPR", `r${Math.round(Number(process.env.RADAR_RECENT_HOURS ?? 168) * 3600)}`);
+  if (remoteOnly(location)) url.searchParams.set("f_WT", "2");
   url.searchParams.set("sortBy", "DD");
   url.searchParams.set("start", String(start));
 
@@ -234,7 +242,7 @@ export const linkedin: Adapter & { readonly complete: false } = {
 
       for (const card of cards) {
         const posting = parseCard(card);
-        if (posting) postings.push(posting);
+        if (posting) postings.push(remoteOnly(loc) ? { ...posting, remote: true } : posting);
       }
     }
 
