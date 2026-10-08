@@ -308,3 +308,31 @@ test("a malformed first page is an error", async (t) => {
     /no stellenangebote array/,
   );
 });
+
+test("v6 search rows map onto postings", async (t) => {
+  const { adapterFor } = await import("./sources/registry.ts");
+  const urls: string[] = [];
+  t.mock.method(globalThis, "fetch", async (url: string) => {
+    urls.push(String(url));
+    if (String(url).includes("/jobdetails/")) return Response.json({ stellenangebotsBeschreibung: "KI Aufgaben" });
+    return Response.json({ maxErgebnisse: 1, ergebnisliste: [{
+      stellenangebotsTitel: "Werkstudent KI (m/w/d)", referenznummer: "10001-1-S", firma: "Acme GmbH",
+      stellenlokationen: [{ adresse: { ort: "Nürnberg", region: "BAYERN" } }],
+      veroeffentlichungszeitraum: { von: "2026-10-07" },
+    }] });
+  });
+  const { postings } = await adapterFor("arbeitsagentur").fetch("ba:werkstudent ki~1", null);
+  assert.ok(urls[0]!.includes("/pc/v6/jobs?"));
+  assert.equal(postings.length, 1);
+  assert.equal(postings[0]!.title, "Werkstudent KI (m/w/d)");
+  assert.equal(postings[0]!.company, "Acme GmbH");
+  assert.equal(postings[0]!.location, "Nürnberg, BAYERN");
+  assert.equal(postings[0]!.description, "KI Aufgaben");
+});
+
+test("v6 empty search is an empty snapshot", async (t) => {
+  const { adapterFor } = await import("./sources/registry.ts");
+  t.mock.method(globalThis, "fetch", async () => Response.json({ maxErgebnisse: 0, page: 1, size: 100 }));
+  const { postings } = await adapterFor("arbeitsagentur").fetch("ba:masterarbeit machine learning~1", null);
+  assert.equal(postings.length, 0);
+});
