@@ -60,3 +60,9 @@ test('stored classification excludes old noise from the scoring backlog', () => 
     assert.ok(JSON.parse(row.matchedSignals as string).includes('rag'));
   } finally { db.close(); }
 });
+test('description-less search cards classify from a technical title', () => {
+  assert.equal(classifyRole('Masterarbeit KI in der Produktion (m/w/d)', null)?.roleFamily, 'ai_llm_application');
+  assert.equal(classifyRole('Praktikum Softwareentwicklung', null)?.roleFamily, 'backend_platform');
+  assert.equal(classifyRole('Werkstudent Marketing', null), null);
+  assert.equal(classifyRole('Senior AI Engineer', null), null);
+});

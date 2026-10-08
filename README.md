@@ -365,3 +365,5 @@ A live cold poll against real boards: Stripe (Greenhouse) 529 open postings, Spo
 MIT
 
 To replace already registered broad searches, run `node scripts/retarget-searches.ts` after copying the example configurations to their live filenames. It backs up the database, mutes obsolete search registrations without deleting history, and registers the focused searches without fetching or sending notifications. Restart long-running dashboard/bot processes after upgrading; the poller loads code each cycle.
+
+Set `RADAR_RECENT_HOURS=24` to show only jobs published within the last day. Jobs without a publication date use their first discovery time. This gate also skips old jobs before description enrichment and automatic model scoring, and suppresses expired discovery alerts on reconnect. LinkedIn requests the same window upstream. Complete company boards still require a full snapshot for reliable closure detection; stored history remains available through `/posting`.

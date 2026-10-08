@@ -1,5 +1,5 @@
 /** Deterministic targeting; no network or model calls. Increment when rules change. */
-export const ROLE_FILTER_VERSION = 2;
+export const ROLE_FILTER_VERSION = 3;
 export type RoleFamily = 'ai_llm_application' | 'backend_platform' | 'developer_tools' | 'industrial_ai' | 'ml_systems';
 export interface RoleClassification {
   roleFamily: RoleFamily;
@@ -50,6 +50,15 @@ export function classifyRole(title: string, description: string | null): RoleCla
   if (signals(t, systems).length && !signals(t, ['generative ai', 'llm application']).length) {
     const index = candidates.findIndex(c => c.family === 'ai_llm_application');
     if (index >= 0) candidates.splice(index, 1);
+  }
+  // Search cards often carry no description, and German descriptions miss the English
+  // signals above. A plainly AI title always classifies; other technical titles only
+  // classify when there is no description to judge.
+  if (!candidates.length) {
+    const bare = !description?.trim();
+    if (/\b(?:ai|ki|ml|llm|genai|generative|machine learning|kunstliche intelligenz|artificial intelligence|data science|computer vision|nlp)\b/.test(t)) add('ai_llm_application', 3, [t.trim()]);
+    else if (bare && /\b(?:digitalisierung|digital twin|industrie 4 0|industry 4 0|produktion\w*|fertigung|automatisierung|automation)\b/.test(t)) add('industrial_ai', 3, [t.trim()]);
+    else if (bare && /\b(?:software\w*|backend|python|developer|entwickler\w*|data engineer\w*|cloud|devops|mlops|platform)\b/.test(t)) add('backend_platform', 3, [t.trim()]);
   }
   candidates.sort((x, y) => x.priority - y.priority);
   const primary = candidates[0];

@@ -1,3 +1,4 @@
+import { recentPostingSql } from "./recent.ts";
 import { classifyRole, ROLE_FILTER_VERSION } from "./roles.ts";
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
@@ -269,7 +270,7 @@ export function listOpenPostings(
   const sql = sourceId
     ? "SELECT * FROM postings WHERE state = 'open' AND (roleFamily IS NOT NULL OR fit_eligible = 1) AND source_id = ? ORDER BY posted_at DESC, id DESC"
     : "SELECT * FROM postings WHERE state = 'open' AND (roleFamily IS NOT NULL OR fit_eligible = 1) ORDER BY posted_at DESC, id DESC";
-  const stmt = db.prepare(sql);
+  const stmt = db.prepare(sql.replace("WHERE state", `WHERE ${recentPostingSql()} AND state`));
   return (sourceId ? stmt.all(sourceId) : stmt.all()) as unknown as PostingRow[];
 }
 
@@ -351,8 +352,8 @@ export function upsertPosting(db: DatabaseSync, row: PostingUpsert): number {
        closed_at    = NULL,
        -- A posting that came back gets a fresh life: the sweeps are allowed to
        -- speak about it again.
-       stale_notified_at = NULL,
-       deadline_notified_at = NULL`,
+       stale_notified_at = CASE WHEN state = 'closed' THEN NULL ELSE stale_notified_at END,
+       deadline_notified_at = CASE WHEN state = 'closed' THEN NULL ELSE deadline_notified_at END`,
   ).run(
     row.source_id,
     row.key,
@@ -475,7 +476,7 @@ export function listUnscoredPostings(
   return db
     .prepare(
       `SELECT * FROM postings
-        WHERE state = 'open' AND roleFamily IS NOT NULL AND fit_score IS NULL AND description IS NOT NULL
+        WHERE ${recentPostingSql()} AND state = 'open' AND roleFamily IS NOT NULL AND fit_score IS NULL AND description IS NOT NULL
         ORDER BY rolePriority ASC, posted_at DESC, id DESC
         LIMIT ?`,
     )
@@ -483,7 +484,7 @@ export function listUnscoredPostings(
 }
 
 /** Work is eligible while its version is stale and it is not in a retry wait. */
-const ELIGIBLE_SQL = `state = 'open'
+const ELIGIBLE_SQL = `${recentPostingSql()} AND state = 'open'
   AND (fit_version IS NULL OR fit_version != ?)
   AND (fit_retry_after IS NULL OR fit_retry_after <= datetime('now'))`;
 
@@ -504,7 +505,7 @@ export function scoringQueueStats(
     : (db
         .prepare(
           `SELECT COUNT(*) AS pending, MIN(first_seen) AS oldest FROM postings
-            WHERE state = 'open' AND roleFamily IS NOT NULL AND fit_score IS NULL AND description IS NOT NULL`,
+            WHERE ${recentPostingSql()} AND state = 'open' AND roleFamily IS NOT NULL AND fit_score IS NULL AND description IS NOT NULL`,
         )
         .get() as { pending: number; oldest: string | null } | undefined);
   return { pending: Number(row?.pending ?? 0), oldest: row?.oldest ?? null };

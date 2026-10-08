@@ -1,3 +1,4 @@
+import { recentPostingSql } from "./recent.ts";
 import { roleLabels } from "./roles.ts";
 import { createServer } from "node:http";
 import { loadConfig } from "./config.ts";
@@ -23,7 +24,7 @@ const QUERY = `
   SELECT p.id, p.title, p.company, p.location, p.url, p.first_seen,
          p.posted_at, p.posted_at_exact, p.roleFamily, p.rolePriority, p.matchedSignals, s.kind, s.label
     FROM postings p JOIN sources s ON s.id = p.source_id
-   WHERE p.state = 'open' AND (p.roleFamily IS NOT NULL OR p.fit_eligible = 1) AND (? IS NULL OR p.roleFamily = ?)
+   WHERE ${recentPostingSql('p')} AND p.state = 'open' AND (p.roleFamily IS NOT NULL OR p.fit_eligible = 1) AND (? IS NULL OR p.roleFamily = ?)
    ORDER BY p.rolePriority ASC, p.first_seen DESC
    LIMIT 300`;
 

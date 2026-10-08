@@ -1,3 +1,4 @@
+import { recentPostingSql } from "./recent.ts";
 import { classifyRole } from "./roles.ts";
 import type { DatabaseSync } from "node:sqlite";
 import { loadConfig, type Config } from "./config.ts";
@@ -611,7 +612,7 @@ async function scoreProfileCycle(db: DatabaseSync, cfg: Config): Promise<number>
   }));
   if (configError) console.error("[poll] scoring stopped early: Jev configuration failure");
   // Also reconsider stored results when thresholds change, without another API call.
-  const candidates = db.prepare("SELECT * FROM postings WHERE state='open' AND fit_version=? AND fit_notified_at IS NULL AND fit_eligible=1").all(context.version) as unknown as import("./types.ts").PostingRow[];
+  const candidates = db.prepare(`SELECT * FROM postings WHERE ${recentPostingSql()} AND state='open' AND fit_version=? AND fit_notified_at IS NULL AND fit_eligible=1`).all(context.version) as unknown as import("./types.ts").PostingRow[];
   for (const posting of candidates) {
     if (!isMatch(posting, cfg, context.version)) continue;
     // Deduplicate queued and delivered alerts across sources, not only within a board.
