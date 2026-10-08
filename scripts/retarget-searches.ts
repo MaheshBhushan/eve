@@ -26,13 +26,14 @@ try {
   let muted = 0;
   for (const source of listSources(db)) {
     if (searchKinds.has(source.kind) && !desired.has(`${source.kind}:${source.ident}`)) {
-      db.prepare('UPDATE sources SET fail_count = ? WHERE id = ?').run(maxFailures, source.id);
+      // A far-future probe time retires the search; the backoff probe would otherwise revive it.
+      db.prepare("UPDATE sources SET fail_count = ?, next_attempt_at = '9999-12-31 00:00:00' WHERE id = ?").run(maxFailures, source.id);
       muted++;
     }
   }
   for (const ref of desired.values()) {
     const source = addSource(db, ref.kind, ref.ident, ref.label);
-    db.prepare('UPDATE sources SET fail_count = 0, etag = NULL, filter_hash = NULL WHERE id = ?').run(source.id);
+    db.prepare('UPDATE sources SET fail_count = 0, next_attempt_at = NULL, etag = NULL, filter_hash = NULL WHERE id = ?').run(source.id);
   }
   db.exec('COMMIT');
   console.log(JSON.stringify({backup, mutedLegacySearches:muted, focusedSearches:desired.size}));

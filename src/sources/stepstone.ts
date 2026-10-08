@@ -158,7 +158,8 @@ function totalJobCount(html: string): number | null {
 }
 
 const CARD_HREF =
-  /href="(\/stellenangebote--[^"]+?-(\d+)-inline\.html)"[^>]*data-at="job-item-title"/g;
+  // Cards switched to absolute hrefs in October 2026; accept both forms.
+  /href="(?:https:\/\/www\.stepstone\.de)?(\/stellenangebote--[^"]+?-(\d+)-inline\.html)"[^>]*data-at="job-item-title"/g;
 
 /**
  * jobId -> ISO publish time, read from the preloaded-state JSON that the page

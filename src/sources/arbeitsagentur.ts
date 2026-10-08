@@ -61,6 +61,10 @@ import type { FetchedPosting, SourceKind } from "../types.ts";
 const KIND: SourceKind = "arbeitsagentur";
 
 const BASE = "https://rest.arbeitsagentur.de/jobboerse/jobsuche-service/pc/v4";
+// v4 search answers 403 since August 2026; v6 serves search with renamed fields.
+// Job details still live on v4.
+// v6 honours only veroeffentlichtseit 0, 1, 7, 14 and 28; other values silently return everything.
+const SEARCH_BASE = "https://rest.arbeitsagentur.de/jobboerse/jobsuche-service/pc/v6";
 const API_KEY = "jobboerse-jobsuche";
 const JOBDETAIL_URL = "https://www.arbeitsagentur.de/jobsuche/jobdetail/";
 
@@ -207,6 +211,26 @@ interface BaJob {
   modifikationsTimestamp?: string | null;
   eintrittsdatum?: string | null;
   externeUrl?: string | null;
+  // v6 names for the same data.
+  stellenangebotsTitel?: string | null;
+  referenznummer?: string | null;
+  firma?: string | null;
+  hauptberuf?: string | null;
+  stellenlokationen?: Array<{ adresse?: BaOrt | null }> | null;
+  veroeffentlichungszeitraum?: { von?: string | null } | null;
+}
+
+/** Folds a v6 row onto the v4 field names the mapping below reads. */
+function fromV6(job: BaJob): BaJob {
+  return {
+    ...job,
+    refnr: job.refnr ?? job.referenznummer,
+    titel: job.titel ?? job.stellenangebotsTitel,
+    arbeitgeber: job.arbeitgeber ?? job.firma,
+    beruf: job.beruf ?? job.hauptberuf,
+    arbeitsort: job.arbeitsort ?? job.stellenlokationen?.[0]?.adresse ?? null,
+    aktuelleVeroeffentlichungsdatum: job.aktuelleVeroeffentlichungsdatum ?? job.veroeffentlichungszeitraum?.von,
+  };
 }
 
 /**
@@ -278,7 +302,7 @@ function pageUrl(s: Search, page: number): string {
   if (s.location) q.set("wo", s.location);
   if (s.radius !== null) q.set("umkreis", String(s.radius));
   if (s.sinceDays !== null) q.set("veroeffentlichtseit", String(s.sinceDays));
-  return `${BASE}/jobs?${q}`;
+  return `${SEARCH_BASE}/jobs?${q}`;
 }
 
 /** The detail endpoint keys on base64 of the refnr (URL-safe, padding kept). */
@@ -305,9 +329,11 @@ async function fetchSearch(ident: string, _etag: string | null): Promise<FetchRe
   for (let page = 1; page <= MAX_PAGES; page++) {
     const body = (await getBa(pageUrl(s, page))) as {
       stellenangebote?: unknown;
+      ergebnisliste?: unknown;
       maxErgebnisse?: unknown;
     };
-    const rows = body.stellenangebote;
+    const list = body.ergebnisliste ?? body.stellenangebote;
+    const rows = Array.isArray(list) ? list.map((row) => fromV6(row as BaJob)) : list;
     // Every page restates the total, and it is read even on the page that ends
     // pagination: a set that shrank while we paged (an ad was withdrawn) is
     // normal, so we track the smallest total we were told rather than the first.
@@ -323,7 +349,8 @@ async function fetchSearch(ident: string, _etag: string | null): Promise<FetchRe
     if (!Array.isArray(rows)) {
       // Past the last page the API answers 200 with the key omitted, which is
       // the normal end-of-results signal, not a malformed response.
-      if (page === 1) throw new Error(`arbeitsagentur ${ident}: no stellenangebote array`);
+      // v6 omits the list entirely when a search has no results.
+      if (page === 1 && total !== 0) throw new Error(`arbeitsagentur ${ident}: no stellenangebote array`);
       break;
     }
 

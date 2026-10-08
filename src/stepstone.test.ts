@@ -80,3 +80,10 @@ test("extractPostedDates keys on the id/title pair and does not bleed across ite
     ["4", "2026-09-01T22:00:00.000Z"],
   ]);
 });
+
+test("absolute card links parse like relative ones", () => {
+  const html = '<a href="https://www.stepstone.de/stellenangebote--Werkstudent-AI-Osnabrueck-pco--14519423-inline.html" data-at="job-item-title"><div>Werkstudent AI (m/w/d)</div></a><span data-at="job-item-company-name">pco GmbH</span><span data-at="job-item-location">Osnabrück</span>';
+  const [p] = parseSearchHtml(html);
+  assert.equal(p?.externalId, "14519423");
+  assert.equal(p?.url, "https://www.stepstone.de/stellenangebote--Werkstudent-AI-Osnabrueck-pco--14519423-inline.html");
+});
