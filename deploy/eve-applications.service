@@ -1,0 +1,20 @@
+[Unit]
+Description=eve sequential authorized test applications
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/eve
+EnvironmentFile=-%h/eve/.env
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/node src/applications.ts run
+UMask=0077
+# Keep all descendants in the service cgroup on stop or controller death.
+KillMode=control-group
+TimeoutStopSec=20
+SendSIGKILL=yes
+# Each session has a watchdog. Bound the whole cycle, including custom limits.
+# Interruption after application start remains uncertain and requires reconciliation.
+TimeoutStartSec=8h
+
