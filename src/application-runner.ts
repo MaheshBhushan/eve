@@ -87,6 +87,11 @@ export function validateApplicationResult(value: unknown, destination: string, r
   if (result.retryable && (result.status !== "failed" || result.submissionPhase !== "pre-submit" || result.evidence.length === 0)) {
     throw new Error("Retry requires explicit pre-submit failure evidence");
   }
+  if ((result.submissionPhase === "submit-started" && result.status !== "uncertain") ||
+      (result.submissionPhase === "confirmed" && result.status !== "test_submitted") ||
+      (result.status === "failed" && result.submissionPhase !== "pre-submit")) {
+    throw new Error("Unconfirmed final submission must remain uncertain");
+  }
   return result;
 }
 

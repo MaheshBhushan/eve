@@ -22,6 +22,7 @@ test("submission success and technical retry require confined evidence", () => {
     assert.throws(() => validateApplicationResult(failed, result.destination, dir));
     assert.equal(validateApplicationResult({ ...failed, submissionPhase: "pre-submit" }, result.destination, dir).retryable, true);
     assert.throws(() => validateApplicationResult({ ...failed, submissionPhase: "submit-started" }, result.destination, dir));
+    assert.throws(() => validateApplicationResult({ ...result, status: "handoff", submissionPhase: "submit-started" }, result.destination, dir));
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

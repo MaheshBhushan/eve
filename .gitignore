@@ -13,3 +13,7 @@ __pycache__/
 config/boards.json
 config/filters.json
 config/searches.json
+
+# Application prompts, browser evidence and local test provenance are private.
+.application-state/
+*.applications.lock

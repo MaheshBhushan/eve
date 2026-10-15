@@ -21,6 +21,172 @@
 
 <!-- HERO: replace with a GIF of a high_fit alert landing in the channel -->
 
+## Authorized test application executor
+
+`node src/applications.ts` provides an independent, one-shot controller over the
+shared SQLite inventory. Execution defaults to disabled. No authorized destination
+has been configured. Do not enable the timer or point this controller at an employer.
+Test outcomes never set `postings.applied_at` or publish real application events.
+
+```bash
+node src/applications.ts status
+node --env-file=.env src/applications.ts enqueue
+node --env-file=.env src/applications.ts run
+node --env-file=.env src/applications.ts resume 12
+# npm run applications -- status is equivalent to the first command.
+```
+
+`status` works while disabled and needs no Discord credentials. It shows the latest
+100 jobs and a pending-notification count capped at 100. `enqueue` backfills eligible
+open, unapplied, unexpired jobs. `run` backfills, reconciles expired leases, drains
+notifications and handles a bounded batch sequentially. Disabled `enqueue` and `run`
+return a successful JSON no-op. `resume <id>` explicitly requeues an operator-resolved
+`handoff`, `failed` or `repair` job. It preserves attempt/repair counts. Exhausted jobs
+need operator investigation and an explicitly increased budget before another run.
+`uncertain` jobs cannot resume: reconcile the evidence with the authorized system
+before any separate administrative resolution. No automated reconciliation command
+is provided. `status` and imports launch no workers.
+
+Configuration is validated before queue mutations or subprocess launch. Environment
+values do not load automatically; use Node's `--env-file` or the service's environment
+file. Database selection is `RADAR_DB_PATH`, then `RADAR_DB`, then `eve.db`. Execution
+uses no Discord secrets. Every application-specific environment variable follows:
+
+| Variable (`EVE_APPLICATION_` prefix) | Default | Accepted values / purpose |
+|---|---|---|
+| `ENABLED` | `false` | Exact `true` or `false`; execution gate |
+| `AUTHORIZED_TEST_SYSTEM` | `false` | Exact `true` explicitly authorizes test submission |
+| `DESTINATION` | unset | Exact absolute application URL; HTTPS, or HTTP on `localhost`, `127.0.0.1`, `[::1]`; no credentials or fragment |
+| `STATE_DIR` | `~/.local/state/eve/applications` | Private owned state directory; mode 0700 |
+| `RUDDR_PATH` | `ruddr` | Executable path or PATH command; supports an isolated local fixture |
+| `SKILLS_DIR` | `~/.codex/skills` | Directory containing full `target` and `autoapply` skills |
+| `MODEL` | `gpt-6.1-sol` | Only this model is accepted |
+| `EFFORT` | `medium` | `low` or `medium`, for application and repair sessions |
+| `SANDBOX` | `workspace-write` | `workspace-write` or deliberately configured `danger-full-access` |
+| `WRITABLE_DIRS` | `[]` | JSON array of existing absolute directories; passed as Codex writable roots |
+| `MAX_JOBS` | `3` | 1–100 jobs per cycle |
+| `ENQUEUE_LIMIT` | `1000` | 1–1000 new jobs per backfill |
+| `MAX_ATTEMPTS` | `3` | 1–10 total application attempts per job, including repair retries |
+| `MAX_REPAIRS` | `2` | 1–5 separate repair sessions per job |
+| `TIMEOUT_SECONDS` | `1200` | 10–7200 seconds per application or repair session |
+| `LEASE_SECONDS` | `120` | 30–600 seconds; renewed every quarter lease |
+| `TELEGRAM_TOKEN` | unset | Optional bot token; configure together with chat ID |
+| `TELEGRAM_CHAT_ID` | unset | Optional operator destination |
+| `TELEGRAM_TIMEOUT_SECONDS` | `10` | 1–60 seconds per notification request |
+
+Only configuration establishes the destination's authorization. Job descriptions
+and worker output cannot extend it. Workers must revalidate the live source posting
+read-only. Every field write, upload and final submit must remain at the exact
+authorized application URL, including tenant/path/query. Unknown redirects require
+handoff; a confirmation redirect may be inspected read-only. This strict boundary
+can require a handoff on multi-page or cross-site login flows. It does not authorize
+all URLs on the same host.
+
+Runtime prerequisites are Linux, Node 26+, util-linux `flock`, Ruddr, a configured
+Codex provider with `gpt-6.1-sol`, the complete target/autoapply skill trees and their
+references, and the skills' PDF tools, factual profile and mounted document archive.
+The Codex configuration must expose the authenticated Playwright/browser MCP tools.
+Ruddr runs with provider `codex`, approval `never`, the configured effort and sandbox,
+an explicit turn watchdog and private absolute prompt/output paths. It runs in a
+private job directory and must never modify this repository.
+
+The workspace sandbox grants writes to the private run directory and
+`WRITABLE_DIRS`. The controller enables sandbox network access for the application
+session; host/provider policies may still restrict network, MCP, archive reads or
+writes. Configure only the actual archive, autoapply state and skill-required build
+directories as additional writable roots. JSON paths preserve spaces. Read access
+to skills, references, the factual profile and Codex/browser credentials must already
+be available to the provider. Do not add this repository, credential directories or
+factual profile directories as writable roots. Deliberately selecting
+`danger-full-access` removes filesystem confinement; operational prompts still
+prohibit repository edits and changes to factual profiles, skills or authorization.
+Missing access must produce an actionable failure/handoff. A local fixture does not
+verify external browser integration, login, archive permissions or ATS scoring.
+
+Application prompts load both skills, request full `test-submit`, stage ordinary
+upload names and retain local provenance. No visible test labels are added to PDFs
+or fields. The prompts prohibit outreach, external tracker publication, execution
+events and outbox flushing. They require handoff for CAPTCHA, 2FA, assessments,
+unknown required facts, authorization changes and unresolved warnings.
+
+Each run retains `provenance.json`, session prompts, `process.log`, Ruddr state,
+structured results and evidence in `STATE_DIR`. Treat all of it as private. Keep
+state outside Git, or use the ignored `.application-state/` directory. Never commit
+documents, screenshots, session transcripts or local test provenance. The database
+stores bounded result metadata and durable history. Retain these files until
+uncertainty has been reconciled; no automatic retention deletion runs.
+
+Results use the handoff contract's statuses `test_submitted`, `handoff`, `uncertain`,
+`cancelled`, `failed`, exact `destination`, nonempty `summary`, `evidence` path array
+and boolean `retryable`. The additional `submissionPhase` field accepts `pre-submit`,
+`submit-started`, `confirmed` or `unknown`. Confirmed success requires nonempty
+existing evidence files confined to that run directory. An explicit technical
+`failed` result requires `submissionPhase: "pre-submit"`; repair additionally
+requires `retryable: true` and evidence of that boundary. A final submission without
+confirmation, missing/malformed result, timeout or death after launch becomes
+`uncertain`. A missing executable caught before launch becomes an actionable
+`failed` outcome. Exit zero alone never establishes success.
+
+Only evidenced pre-submit technical failures enter a separate bounded repair
+session. Repair may inspect run-local evidence and write instructions for another
+application attempt; it may not browse, upload, submit or change shared code/policy.
+A repair result has `status` (`repaired`, `failed`, `handoff`), `summary`, `notes` and
+the exact `destination`. The controller records every outcome before retry and
+persists successful repair counts through the queue's `repair` transition.
+Repair success never implies submission success.
+
+A Linux OS lock beside the canonical SQLite database (`*.applications.lock`) spans
+the full cycle and every application/repair child lifecycle. All controllers must
+use this interface and the same database. Run the browser profile exclusively for
+this executor; external browser automation does not participate in its lock.
+The guardian and Ruddr inherit the locked open file description. A paused or orphaned
+guardian retains the lock and prevents another controller from starting. The guardian
+kills Ruddr's process group on controller IPC loss, missed heartbeats, timeout or
+shutdown. Its heartbeat watchdog expires at half the database lease duration. Every
+session forbids detached/background workers. The guardian kills remaining group
+members before exiting. SIGTERM/SIGINT stop the current session and preserve an
+uncertain outcome if submission may have started. Expired database leases become
+uncertain. Busy controllers return JSON with `busy: true` without claiming work.
+Do not delete a lock file to clear a busy controller; inspect and stop its processes.
+
+Telegram is optional. Without it, notifications remain pending in SQLite and local
+`status` remains available. Delivery uses plain text, a bounded timeout and no
+Markdown parsing. Both HTTP success and Telegram `ok: true` are required before
+acknowledgement. Delivery failure preserves job outcomes and pending notifications;
+one failed request stops that drain pass while applications continue. A crash after
+delivery but before acknowledgement may deliver a duplicate with the same event ID.
+Tokens are excluded from worker arguments/environment and transport error messages.
+There is no inbound webhook.
+
+`deploy/eve-applications.service` and `.timer` are uninstalled templates. They assume
+`%h/eve`, load its optional `.env`, use a private umask and kill the complete service
+cgroup on stop. The service has an eight-hour cycle ceiling; each session also has
+its own watchdog. Large configured batches may hit the service ceiling and require
+reconciliation of the interrupted job. Adjust paths and runtime access deliberately
+after an exact test destination is authorized. This implementation does not install,
+enable or start either unit.
+
+Integration verification must use an isolated SQLite database and a throwaway
+Ruddr executable, never employer portals. A fixture receives Ruddr's real argument
+array (`run`, `--prompt-file`, `--state-dir`, `--cwd`, model/effort and policy flags),
+reads the supplied prompt's atomic result path, and writes evidence and result JSON
+under its private run directory. It must handle a separate repair prompt/result.
+Use temporary skills directories containing readable `target/SKILL.md` and
+`autoapply/SKILL.md` files for fixture preflight. Verify authorized confirmation,
+pre-submit repair/retry, malformed or missing results, nonzero exit, SIGTERM,
+controller death, heartbeat loss, concurrent controllers, explicit resume and
+Telegram failure/success acknowledgement. Confirm test outcomes leave
+`postings.applied_at` and real execution events unchanged.
+
+```bash
+RADAR_DB_PATH=/absolute/temporary/eve.db node src/applications.ts status
+node --test src/application-config.test.ts src/application-runner.test.ts
+npm test
+npm run typecheck
+code-health check --fast --changed
+code-health check --deep --changed
+```
+
 ## What it does
 
 You `/watch greenhouse:stripe`. From then on, new postings, closures, reposts and high-fit matches arrive in one Discord channel on their own.
