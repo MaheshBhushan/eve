@@ -12,30 +12,39 @@ import { getPosting, openDb } from "./db.ts";
 type Notification = { id: number; job_id: number; payload_json: string };
 
 export async function deliverApplicationNotification(config: ApplicationConfig, notification: Notification, transport: typeof fetch = fetch, signal?: AbortSignal): Promise<void> {
-  if (!config.telegramToken || !config.telegramChatId) throw new Error("Application Telegram transport is not configured");
-  const text = `Eve test application ${notification.job_id} (event ${notification.id})\n${notification.payload_json}`
-    .replaceAll(config.telegramToken, "[redacted]")
-    .replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, " ").slice(0, 3500);
-  const timeout = AbortSignal.timeout(config.telegramTimeoutSeconds * 1000);
+  const discord = Boolean(config.discordChannelId);
+  const token = discord ? config.discordToken : config.telegramToken;
+  if (!token || (!discord && !config.telegramChatId)) throw new Error("Application notification transport is not configured");
+  const text = `Eve application needs attention — job ${notification.job_id} (event ${notification.id})\n${notification.payload_json}`
+    .replaceAll(token, "[redacted]")
+    .replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, " ").slice(0, discord ? 1900 : 3500);
+  const timeout = AbortSignal.timeout((discord ? config.discordTimeoutSeconds : config.telegramTimeoutSeconds) * 1000);
   try {
-    const response = await transport(`https://api.telegram.org/bot${encodeURIComponent(config.telegramToken)}/sendMessage`, {
-      method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ chat_id: config.telegramChatId, text }),
+    const response = await transport(discord
+      ? `https://discord.com/api/v10/channels/${config.discordChannelId}/messages`
+      : `https://api.telegram.org/bot${encodeURIComponent(token)}/sendMessage`, {
+      method: "POST",
+      headers: discord ? { "content-type": "application/json", authorization: `Bot ${token}` } : { "content-type": "application/json" },
+      body: JSON.stringify(discord
+        ? { content: text, allowed_mentions: { parse: [] } }
+        : { chat_id: config.telegramChatId, text }),
       signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
     });
-    if (!response.ok) throw new Error("Telegram HTTP response failed");
-    const body = await response.json() as { ok?: unknown };
-    if (body?.ok !== true) throw new Error("Telegram delivery was not acknowledged");
+    if (!response.ok) throw new Error("Notification HTTP response failed");
+    const body = await response.json() as { ok?: unknown; id?: unknown; channel_id?: unknown };
+    if (discord
+      ? typeof body?.id !== "string" || !/^\d{17,20}$/.test(body.id) || body.channel_id !== config.discordChannelId
+      : body?.ok !== true) throw new Error("Notification delivery was not acknowledged");
   } catch {
-    // Fetch errors can include the request URL, which contains the bot token.
-    throw new Error("Telegram delivery failed or timed out; notification remains pending");
+    // Transport failures can include secret request headers or URLs.
+    throw new Error("Notification delivery failed or timed out; notification remains pending");
   }
 }
 
 export async function drainApplicationNotifications(db: DatabaseSync, config: ApplicationConfig, transport: typeof fetch = fetch, signal?: AbortSignal): Promise<{ delivered: number; pending: boolean }> {
   let delivered = 0;
   const notifications = pendingApplicationNotifications(db, 100);
-  if (!config.telegramToken || !config.telegramChatId) return { delivered, pending: notifications.length > 0 };
+  if (config.discordChannelId ? !config.discordToken : !config.telegramToken || !config.telegramChatId) return { delivered, pending: notifications.length > 0 };
   for (const notification of notifications) {
     if (signal?.aborted) return { delivered, pending: true };
     try {

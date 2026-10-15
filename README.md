@@ -76,6 +76,9 @@ uses no Discord secrets. Every application-specific environment variable follows
 | `TELEGRAM_TOKEN` | unset | Optional bot token; configure together with chat ID |
 | `TELEGRAM_CHAT_ID` | unset | Optional operator destination |
 | `TELEGRAM_TIMEOUT_SECONDS` | `10` | 1–60 seconds per notification request |
+| `DISCORD_CHANNEL_ID` | unset | Optional critical-alert channel; takes precedence over Telegram |
+| `DISCORD_TOKEN` | existing `DISCORD_TOKEN` | Optional separate notification bot token |
+| `DISCORD_TIMEOUT_SECONDS` | `10` | 1–60 seconds per notification request |
 
 Only configuration establishes the destination's authorization. Job descriptions
 and worker output cannot extend it. Workers must revalidate the live source posting
@@ -154,14 +157,37 @@ uncertain outcome if submission may have started. Expired database leases become
 uncertain. Busy controllers return JSON with `busy: true` without claiming work.
 Do not delete a lock file to clear a busy controller; inspect and stop its processes.
 
-Telegram is optional. Without it, notifications remain pending in SQLite and local
-`status` remains available. Delivery uses plain text, a bounded timeout and no
-Markdown parsing. Both HTTP success and Telegram `ok: true` are required before
-acknowledgement. Delivery failure preserves job outcomes and pending notifications;
-one failed request stops that drain pass while applications continue. A crash after
-delivery but before acknowledgement may deliver a duplicate with the same event ID.
-Tokens are excluded from worker arguments/environment and transport error messages.
-There is no inbound webhook.
+Discord or Telegram can deliver operator handoffs, uncertain submissions and exhausted
+failures; routine successful applications and recovered errors do not create alerts.
+A configured Discord channel takes precedence over Telegram. Without credentials,
+notifications remain pending in SQLite. Discord requires HTTP success and a message
+ID acknowledged for the configured channel; Telegram requires HTTP success and
+`ok: true`. Transport failures leave notifications pending. A crash after delivery
+but before acknowledgement can duplicate an alert with the same event ID.
+Discord messages disable automatic mentions and never use the job-feed channel
+unless explicitly configured as the alert destination. Tokens are excluded from
+worker arguments/environment and transport errors. There is no inbound webhook.
+
+### Creating and inviting the notification bot
+
+1. Open [Discord Developer Portal](https://discord.com/developers/applications),
+   choose **New Application**, then open **Bot** and create/reset its token.
+2. Store the token locally as `EVE_APPLICATION_DISCORD_TOKEN` in `.env`; never paste
+   it into chat or commit it. An existing `DISCORD_TOKEN` can be reused instead.
+3. Copy the application's **Application ID** from General Information. Replace
+   `YOUR_APPLICATION_ID` in this invite URL, open it, and select the server containing
+   the alert channel:
+   `https://discord.com/oauth2/authorize?client_id=YOUR_APPLICATION_ID&scope=bot&permissions=3072`.
+4. Grant the bot **View Channel** and **Send Messages** in channel
+   `1560260264509841449`. Bot invitations target a server, not an individual channel;
+   a private channel needs an explicit permission override for the bot.
+5. Set `EVE_APPLICATION_DISCORD_CHANNEL_ID=1560260264509841449`. This does not change
+   the existing job-feed `DISCORD_CHANNEL_ID`. No Administrator, privileged gateway
+   intents or slash-command scope is needed for notification-only REST delivery.
+
+An invitation link cannot be completed from a channel ID alone: it needs the bot's
+Application ID. Application execution remains separately disabled until its review
+destination is configured and explicitly authorized.
 
 `deploy/eve-applications.service` and `.timer` are uninstalled templates. They assume
 `%h/eve`, load its optional `.env`, use a private umask and kill the complete service
