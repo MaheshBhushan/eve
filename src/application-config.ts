@@ -45,7 +45,7 @@ export function loadApplicationConfig(env: NodeJS.ProcessEnv = process.env): App
     let url: URL;
     try { url = new URL(destination); } catch { throw new Error("EVE_APPLICATION_DESTINATION must be an absolute URL"); }
     const local = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
-    if (destination !== destination.trim() || url.username || url.password || url.hash ||
+    if (!/^https?:\/\//.test(destination) || destination !== destination.trim() || url.username || url.password || url.hash ||
         (url.protocol !== "https:" && !(url.protocol === "http:" && local))) {
       throw new Error("EVE_APPLICATION_DESTINATION requires HTTPS (HTTP only on loopback), no credentials or fragment");
     }
