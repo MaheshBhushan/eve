@@ -9,7 +9,7 @@ test("the same job on two boards is announced once", async () => {
   const db = openDb(":memory:");
   const cfg = { digestThreshold: 5, pingTarget: "", matchesOnly: false } as Config;
   const job = { key: "same-job", title: "Backend Engineer", company: "Acme", location: "Berlin", remote: 0, department: null, posted_at: new Date().toISOString(), posted_at_exact: 1, closes_at: null, description: null };
-  const ids = ["linkedin", "greenhouse"].map((kind, i) => {
+  const ids = (["linkedin", "greenhouse"] as const).map((kind, i) => {
     const source = addSource(db, kind, `acme-${i}`, kind);
     const id = upsertPosting(db, { ...job, source_id: source.id, external_id: String(i), url: `https://example.com/${i}` });
     db.prepare("UPDATE postings SET roleFamily='backend' WHERE id=?").run(id);

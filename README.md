@@ -28,6 +28,9 @@ shared SQLite inventory. Execution defaults to disabled. No authorized destinati
 has been configured. Do not enable the timer or point this controller at an employer.
 Test outcomes never set `postings.applied_at` or publish real application events.
 
+Detailed design, ownership contracts, acceptance criteria and observed smoke evidence:
+[implementation handoff](docs/APPLICATION_AUTOMATION_HANDOFF.md).
+
 ```bash
 node src/applications.ts status
 node --env-file=.env src/applications.ts enqueue
