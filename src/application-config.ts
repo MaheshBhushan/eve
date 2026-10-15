@@ -76,7 +76,7 @@ export function loadApplicationConfig(env: NodeJS.ProcessEnv = process.env): App
     skillsDir: resolve(env[key("SKILLS_DIR")] ?? join(homedir(), ".codex/skills")),
     model, effort, sandbox, writableDirs,
     maxJobs: integer("MAX_JOBS", 3, 1, 100),
-    enqueueLimit: integer("ENQUEUE_LIMIT", 1000, 1, 10000),
+    enqueueLimit: integer("ENQUEUE_LIMIT", 1000, 1, 1000),
     maxAttempts: integer("MAX_ATTEMPTS", 3, 1, 10),
     maxRepairs: integer("MAX_REPAIRS", 2, 1, 5),
     timeoutSeconds: integer("TIMEOUT_SECONDS", 1200, 10, 7200),
