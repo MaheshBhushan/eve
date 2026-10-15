@@ -22,6 +22,9 @@ export interface ApplicationConfig {
   telegramToken: string | null;
   telegramChatId: string | null;
   telegramTimeoutSeconds: number;
+  discordToken: string | null;
+  discordChannelId: string | null;
+  discordTimeoutSeconds: number;
 }
 
 export function loadApplicationConfig(env: NodeJS.ProcessEnv = process.env): ApplicationConfig {
@@ -68,6 +71,9 @@ export function loadApplicationConfig(env: NodeJS.ProcessEnv = process.env): App
   const telegramToken = env[key("TELEGRAM_TOKEN")] || null;
   const telegramChatId = env[key("TELEGRAM_CHAT_ID")] || null;
   if (Boolean(telegramToken) !== Boolean(telegramChatId)) throw new Error("Configure both EVE_APPLICATION_TELEGRAM_TOKEN and EVE_APPLICATION_TELEGRAM_CHAT_ID or neither");
+  const discordChannelId = env[key("DISCORD_CHANNEL_ID")] || null;
+  if (discordChannelId && !/^\d{17,20}$/.test(discordChannelId)) throw new Error("EVE_APPLICATION_DISCORD_CHANNEL_ID must be a Discord channel ID");
+  const discordToken = env[key("DISCORD_TOKEN")] || env.DISCORD_TOKEN || null;
   return {
     enabled, authorized, destination,
     dbPath: env.RADAR_DB_PATH ?? env.RADAR_DB ?? "eve.db",
@@ -83,6 +89,8 @@ export function loadApplicationConfig(env: NodeJS.ProcessEnv = process.env): App
     leaseSeconds: integer("LEASE_SECONDS", 120, 30, 600),
     telegramToken, telegramChatId,
     telegramTimeoutSeconds: integer("TELEGRAM_TIMEOUT_SECONDS", 10, 1, 60),
+    discordToken, discordChannelId,
+    discordTimeoutSeconds: integer("DISCORD_TIMEOUT_SECONDS", 10, 1, 60),
   };
 }
 
