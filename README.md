@@ -132,7 +132,9 @@ session. Repair may inspect run-local evidence and write instructions for anothe
 application attempt; it may not browse, upload, submit or change shared code/policy.
 A repair result has `status` (`repaired`, `failed`, `handoff`), `summary`, `notes` and
 the exact `destination`. The controller records every outcome before retry and
-persists successful repair counts through the queue's `repair` transition.
+reserves repair counts through the queue's `repair` transition before launching
+recovery. Reclaiming the lease reserves the next attempt. Failed repair sessions
+consume that reservation. A queued repair reservation resumes its repair first.
 Repair success never implies submission success.
 
 A Linux OS lock beside the canonical SQLite database (`*.applications.lock`) spans

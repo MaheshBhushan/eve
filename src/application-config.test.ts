@@ -14,7 +14,7 @@ test("application execution requires explicit destination authorization", () => 
   assert.throws(() => loadApplicationConfig(env), /AUTHORIZED_TEST_SYSTEM/);
   const config = loadApplicationConfig({ ...env, EVE_APPLICATION_AUTHORIZED_TEST_SYSTEM: "true" });
   assert.doesNotThrow(() => requireApplicationExecution(config));
-  for (const destination of ["http://employer.example/apply", "https://user:password@test.example", "file:///tmp/form", "https://test.example/#fragment"]) {
+  for (const destination of ["http://employer.example/apply", "https://user:password@test.example", "file:///tmp/form", "https://test.example/#fragment", "https:example.com"]) {
     assert.throws(() => loadApplicationConfig({ EVE_APPLICATION_DESTINATION: destination }));
   }
   assert.equal(loadApplicationConfig({ EVE_APPLICATION_DESTINATION: "http://127.0.0.1:8989/apply" }).destination, "http://127.0.0.1:8989/apply");
