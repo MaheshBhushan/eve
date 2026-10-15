@@ -94,3 +94,20 @@ Agents work in independent worktrees from the handoff commit. Queue and executor
 ## Deployment boundary
 
 No live authorized destination or Telegram credentials were provided. Deliver runnable disabled-by-default code, example configuration and service/timer units; do not install/enable services or invent destination authorization. A local fixture proves controller behavior, not third-party resume scoring, browser login or external submission. Report this distinction explicitly.
+
+## Implemented delivery and observed verification
+
+The queue, runner, controller, validated environment configuration and disabled systemd templates are implemented. Runtime repair outcomes additionally use `submissionPhase`: retry requires `pre-submit` plus run-confined evidence. Repairs are durably reserved before starting their separate Codex session. Linux `flock` ownership is inherited by a guardian and worker process group; controller disconnect, termination, heartbeat loss or timeout terminates that group. The OS lock spans application and repair sessions even when their database lease is released and reacquired. Controller briefs and development session state remain outside the repository.
+
+Observed local smoke scenarios used a throwaway executable in place of Ruddr; no browser or external employer/review endpoint was contacted:
+
+- Actual CLI `run` and `status` accepted an isolated temporary SQLite inventory and produced a confirmed test result without modifying `postings.applied_at`.
+- An evidenced pre-submit technical failure triggered one repair session, then a second application session, with one durable repair and two attempts.
+- A successful process exit without structured application output became `uncertain`; explicit resume was rejected.
+- A verification handoff retained a durable notification. Telegram HTTP/JSON rejection left it pending; acknowledged delivery cleared it. Explicit CLI resume requeued the handoff.
+- A second controller returned busy while the first held the browser lock. SIGTERM of the active controller killed its fixture worker and left submission state uncertain.
+- Queue smoke covered eligibility, duplicate backfill, stale-token fencing, interrupted-lease quarantine and persistent notifications.
+
+Development used two `gpt-6.1-sol` medium-effort Codex subagents through Ruddr. Neither worker ran actual application sessions. The operating configuration remains disabled: an authorized destination, browser/MCP setup, archive access and optional Telegram credentials must be supplied before activation. External PDF generation, browser login, resume-review scoring and final test-system submission have not been verified by the controller fixtures.
+
+Final integrated checks passed: `node --test --test-reporter=dot src/*.test.ts` and `npm run typecheck`. Both `code-health check --fast --changed --base bd85fd1` and `code-health check --deep --changed --base bd85fd1` reported zero errors and one intentional style warning at `src/applications.ts:18`: the control-character regex sanitizes outgoing notification text. No warning suppression was added. Integration fixed SQLite identifier narrowing, optional guardian disconnect typing, and existing nullable/source-kind test fixture typing. A source-wording prompt assertion was removed rather than pinned to implementation text.

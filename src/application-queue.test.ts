@@ -19,7 +19,7 @@ const options = { destination, limit: 100 };
 
 function posting(db: DatabaseSync, key = 'role', source = 'board'): number {
   db.prepare("INSERT OR IGNORE INTO sources (kind, ident, label) VALUES ('greenhouse', ?, ?)").run(source, source);
-  const sourceId = db.prepare('SELECT id FROM sources WHERE ident = ?').get(source)!.id;
+  const sourceId = Number(db.prepare('SELECT id FROM sources WHERE ident = ?').get(source)!.id);
   return Number(db.prepare(`INSERT INTO postings
     (source_id, key, external_id, title, company, url, posted_at)
     VALUES (?, ?, ?, 'Engineer', 'Acme', 'https://jobs.example.test/role', datetime('now'))`)

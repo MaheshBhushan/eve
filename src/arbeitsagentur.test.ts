@@ -322,6 +322,7 @@ test("v6 search rows map onto postings", async (t) => {
     }] });
   });
   const { postings } = await adapterFor("arbeitsagentur").fetch("ba:werkstudent ki~1", null);
+  assert.ok(postings);
   assert.ok(urls[0]!.includes("/pc/v6/jobs?"));
   assert.equal(postings.length, 1);
   assert.equal(postings[0]!.title, "Werkstudent KI (m/w/d)");
@@ -334,5 +335,6 @@ test("v6 empty search is an empty snapshot", async (t) => {
   const { adapterFor } = await import("./sources/registry.ts");
   t.mock.method(globalThis, "fetch", async () => Response.json({ maxErgebnisse: 0, page: 1, size: 100 }));
   const { postings } = await adapterFor("arbeitsagentur").fetch("ba:masterarbeit machine learning~1", null);
+  assert.ok(postings);
   assert.equal(postings.length, 0);
 });

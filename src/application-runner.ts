@@ -189,7 +189,7 @@ async function supervise(spec: SessionSpec): Promise<void> {
     stopping = true;
     outcome = { started, code: null, error: reason };
     killGroup();
-    if (!child?.pid) { send(); if (process.connected) process.disconnect(); }
+    if (!child?.pid) { send(); if (process.connected) process.disconnect?.(); }
   };
   const leaseTimer = setInterval(() => { if (Date.now() >= deadline) stop("Worker lease watchdog expired"); }, 250);
   const timeout = setTimeout(() => stop("Worker session timed out"), spec.timeoutSeconds * 1000);
@@ -217,7 +217,7 @@ async function supervise(spec: SessionSpec): Promise<void> {
     killGroup();
     closeSync(fd);
     send();
-    if (process.connected) process.disconnect();
+    if (process.connected) process.disconnect?.();
   }
 }
 

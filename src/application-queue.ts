@@ -103,7 +103,7 @@ export function claimApplication(db: DatabaseSync, leaseSeconds: number): Applic
       const claimed = db.prepare(`UPDATE application_jobs SET posting_id = ?, state = 'running', attempts = attempts + 1,
         lease_token = ?, lease_until = datetime('now', ?), updated_at = datetime('now')
         WHERE id = ? AND state = 'queued' RETURNING *`)
-        .get(posting.id, token, `+${leaseSeconds} seconds`, job.id) as unknown as ApplicationJob;
+        .get(Number(posting.id), token, `+${leaseSeconds} seconds`, job.id) as unknown as ApplicationJob;
       event(db, job.id, 'running', json({ attempt: claimed.attempts }));
       return claimed;
     }
