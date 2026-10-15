@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { applicationPrompt, validateApplicationResult } from "./application-runner.ts";
 import { loadApplicationConfig } from "./application-config.ts";
+import { deliverApplicationNotification } from "./applications.ts";
 import type { PostingRow } from "./types.ts";
 
 test("submission success and technical retry require confined evidence", () => {
@@ -33,4 +34,20 @@ test("application prompt retains skill protections and exact destination", () =>
     "CAPTCHA", "never be retried", "Do not edit repository code", "real application execution events"]) {
     assert.ok(prompt.includes(text), text);
   }
+});
+
+test("Telegram requires HTTP and JSON acknowledgement and redacts transport failures", async () => {
+  const config = loadApplicationConfig({ EVE_APPLICATION_TELEGRAM_TOKEN: "123:fixture-token", EVE_APPLICATION_TELEGRAM_CHAT_ID: "123" });
+  const notification = { id: 1, job_id: 1, payload_json: '{"state":"handoff"}' };
+  const transport = (status: number, body: unknown) => (async () => new Response(JSON.stringify(body), { status })) as typeof fetch;
+  await deliverApplicationNotification(config, notification, transport(200, { ok: true }));
+  await assert.rejects(deliverApplicationNotification(config, notification, transport(200, { ok: false })), /remains pending/);
+  await assert.rejects(deliverApplicationNotification(config, notification, transport(503, { ok: true })), /remains pending/);
+  await assert.rejects(deliverApplicationNotification(config, notification, (async () => {
+    throw new Error(`transport URL contains ${config.telegramToken}`);
+  }) as typeof fetch), error => {
+    assert.ok(error instanceof Error);
+    assert.ok(!error.message.includes(config.telegramToken!));
+    return true;
+  });
 });
