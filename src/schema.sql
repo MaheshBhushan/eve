@@ -214,3 +214,49 @@ CREATE TABLE IF NOT EXISTS jev_meta (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+
+-- Application audit retains its posting id and identity after source deletion.
+-- No posting foreign key: deleting a source must not erase or rewrite history.
+CREATE TABLE IF NOT EXISTS application_jobs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  posting_id INTEGER NOT NULL,
+  identity TEXT NOT NULL,
+  state TEXT NOT NULL DEFAULT 'queued'
+    CHECK (state IN ('queued', 'running', 'repair', 'handoff', 'uncertain', 'submitted', 'cancelled', 'failed')),
+  destination TEXT NOT NULL CHECK (length(destination) BETWEEN 1 AND 2048),
+  attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+  repairs INTEGER NOT NULL DEFAULT 0 CHECK (repairs >= 0),
+  lease_token TEXT,
+  lease_until TEXT,
+  result_json TEXT CHECK (result_json IS NULL OR length(CAST(result_json AS BLOB)) <= 65536),
+  last_error TEXT CHECK (last_error IS NULL OR length(last_error) <= 4096),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (identity, destination),
+  CHECK ((state = 'running' AND lease_token IS NOT NULL AND lease_until IS NOT NULL)
+    OR (state != 'running' AND lease_token IS NULL AND lease_until IS NULL))
+);
+CREATE INDEX IF NOT EXISTS application_jobs_queue_idx ON application_jobs (state, id);
+CREATE UNIQUE INDEX IF NOT EXISTS application_browser_lease_idx
+  ON application_jobs (state) WHERE state = 'running';
+
+CREATE TABLE IF NOT EXISTS application_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  job_id INTEGER NOT NULL REFERENCES application_jobs(id),
+  kind TEXT NOT NULL CHECK (length(kind) BETWEEN 1 AND 128),
+  payload_json TEXT NOT NULL CHECK (length(CAST(payload_json AS BLOB)) <= 65536),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS application_events_job_idx ON application_events (job_id, id);
+CREATE TRIGGER IF NOT EXISTS application_events_no_update BEFORE UPDATE ON application_events
+BEGIN SELECT RAISE(ABORT, 'application history is append-only'); END;
+CREATE TRIGGER IF NOT EXISTS application_events_no_delete BEFORE DELETE ON application_events
+BEGIN SELECT RAISE(ABORT, 'application history is append-only'); END;
+
+-- Delivery acknowledgements never mutate the append-only event payload.
+CREATE TABLE IF NOT EXISTS application_notifications (
+  event_id INTEGER PRIMARY KEY REFERENCES application_events(id),
+  delivered_at TEXT
+);
+CREATE INDEX IF NOT EXISTS application_notifications_pending_idx
+  ON application_notifications (delivered_at, event_id);
