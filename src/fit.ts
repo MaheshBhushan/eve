@@ -152,7 +152,7 @@ function runClaude(prompt: string, model: string): Promise<string | null> {
   return new Promise((resolve) => {
     const child = spawn(
       "claude",
-      ["-p", "--model", model, "--effort", "low"],
+      ["-p", "--model", model, "--effort", "low", "--tools", ""],
       { stdio: ["pipe", "pipe", "pipe"] },
     );
 
