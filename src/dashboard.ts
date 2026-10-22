@@ -73,6 +73,9 @@ const family = document.getElementById('family');
 Object.entries(labels).forEach(([value, label]) => family.add(new Option(label, value)));
 family.onchange = refresh;
 
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return "&#" + c.charCodeAt(0) + ";"; }); }
+function safeHref(u) { return /^https?:[/][/]/i.test(String(u || "")) ? esc(u) : "#"; }
+
 function relTime(iso) {
   const s = Math.max(0, Math.floor((Date.now() - new Date(iso + "Z").getTime()) / 1000));
   if (s < 60) return s + "s ago";
@@ -90,12 +93,12 @@ function render(rows) {
     const isNew = (now - new Date(r.first_seen + "Z").getTime()) < 3600 * 1000;
     const posted = r.posted_at_exact ? '<span class="badge">Posted ' + relTime(r.posted_at) + '</span>' : "";
     return '<div class="card">' +
-      '<a href="' + r.url + '" target="_blank" rel="noopener">' + r.title + '</a>' +
-      '<div class="meta">' + r.company + (r.location ? ' · ' + r.location : '') + '</div>' +
+      '<a href="' + safeHref(r.url) + '" target="_blank" rel="noopener">' + esc(r.title) + '</a>' +
+      '<div class="meta">' + esc(r.company) + (r.location ? ' · ' + esc(r.location) : '') + '</div>' +
       '<div class="badges">' +
-        '<span class="badge">' + (labels[r.roleFamily] || 'Profile candidate') + '</span>' +
-        '<span class="badge source">' + r.kind + '</span>' +
-        '<span class="badge">' + r.label + '</span>' +
+        '<span class="badge">' + esc(labels[r.roleFamily] || 'Profile candidate') + '</span>' +
+        '<span class="badge source">' + esc(r.kind) + '</span>' +
+        '<span class="badge">' + esc(r.label) + '</span>' +
         (isNew ? '<span class="badge new">NEW</span>' : '') +
         posted +
         '<span class="badge">Detected ' + relTime(r.first_seen) + '</span>' +
