@@ -433,6 +433,9 @@ Seeding applies the same filter the poller does, and records the same hash. That
 | `DISCORD_TOKEN` | — | |
 | `DISCORD_CHANNEL_ID` | — | Single channel for all watched boards |
 | `DISCORD_APP_ID` | derived from token | Only needed if `--register` can't derive it |
+| `DISCORD_ALLOWED_USER_IDS` | — | Required. Comma-separated Discord user ids allowed to run slash commands; unset refuses every command |
+| `DISCORD_GUILD_ID` | unset | Optional. Only accept commands from this server |
+| `DISCORD_COMMAND_CHANNEL_IDS` | unset | Optional. Only accept commands in these channels |
 | `RADAR_DB` | `eve.db` | Use an absolute path; both processes open it |
 | `RADAR_PROFILE` | — | Path to job-pipeline's `profile.json`. Unset disables fit scoring and `high_fit` |
 | `RADAR_FIT_MODEL` | `sonnet` | Model run through the `claude` CLI |
