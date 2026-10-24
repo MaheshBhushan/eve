@@ -1,6 +1,7 @@
 import type { Adapter, FetchResult, ParsedRef } from "./index.ts";
 import { getJson, stripHtml } from "./index.ts";
 import type { FetchedPosting } from "../types.ts";
+import { enforceContract } from "../contracts.ts";
 
 /** Recognises `greenhouse:token`, `boards.greenhouse.io/token`, `job-boards.greenhouse.io/token`. */
 const PREFIX_RE = /^greenhouse:([a-z0-9][a-z0-9-]*)$/i;
@@ -75,6 +76,7 @@ async function fetchBoard(ident: string, etag: string | null): Promise<FetchResu
     throw new Error(`greenhouse board ${ident} did not return a jobs array`);
   }
 
+  enforceContract("greenhouse", ident, jobs);
   const postings = (jobs as GreenhouseJob[]).map((j) => toPosting(j, ident));
   return { postings, etag: newEtag };
 }

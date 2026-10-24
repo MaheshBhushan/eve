@@ -1,6 +1,7 @@
 import type { Adapter, FetchResult, ParsedRef } from "./index.ts";
 import { getJson } from "./index.ts";
 import type { FetchedPosting } from "../types.ts";
+import { enforceContract } from "../contracts.ts";
 
 /** Recognises `lever:slug`, `jobs.lever.co/slug`, `jobs.eu.lever.co/slug`. */
 const PREFIX_RE = /^lever:([a-z0-9][a-z0-9-]*)$/i;
@@ -71,6 +72,7 @@ async function fetchBoard(ident: string, etag: string | null): Promise<FetchResu
     throw new Error(`lever board ${ident} error: ${err}`);
   }
 
+  enforceContract("lever", ident, body);
   const postings = (body as LeverPosting[]).map((p) => toPosting(p, ident));
   return { postings, etag: newEtag };
 }
