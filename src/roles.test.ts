@@ -9,7 +9,12 @@ const examples = [
   ['Working Student Software Engineering, Generative AI', null, 'ai_llm_application'],
   ['Werkstudent Softwareentwicklung für KI-basierte Anwendungen', null, 'ai_llm_application'],
   ['Innovation Intern', 'Develop agents using RAG, tool calling and LangGraph.', 'ai_llm_application'],
-  ['Junior Backend Engineer', '3 years experience with Python and FastAPI.', 'backend_platform'],
+  ['Junior Backend Engineer', '0-1 years of experience with Python and FastAPI.', 'backend_platform'],
+  ['Junior Backend Engineer', 'No professional experience required. Python and FastAPI.', 'backend_platform'],
+  ['Backend Engineer', 'Python and FastAPI. A one-month sabbatical after five years with us.', 'backend_platform'],
+  ['Backend Engineer', 'Python and FastAPI. 3+ years of experience is a plus.', 'backend_platform'],
+  ['Junior Backend Engineer', 'Python. Praktikum oder bis zu 1 1/2 Jahre Berufserfahrung.', 'backend_platform'],
+  ['Werkstudent Backend Python', 'Jahrelange Berufserfahrung brauchst du nicht. Du bist erfahrener Student.', 'backend_platform'],
   ['Software Engineer', 'Develop backend microservices using Python and Redis.', 'backend_platform'],
   ['Software Engineer, Engineering Productivity', null, 'developer_tools'],
   ['Tooling Engineer', 'Build CLI tools and SDKs.', 'developer_tools'],
@@ -30,7 +35,7 @@ for (const [title, description, family] of examples) test(`classifies ${title}: 
 for (const title of ['Senior AI Engineer', 'Sr. Backend Engineer', 'Staff LLM Engineer', 'Principal AI Engineer', 'Lead Backend Engineer', 'AI Architect', 'Engineering Manager', 'Director AI', 'Head of AI', 'Head (m/f/x) of Engineering', 'Head (m/w/d) of Data', 'Frontend Developer', 'Mobile Developer', 'SAP Consultant', 'IT Support', 'Network Administrator', 'Manual QA Tester', 'Business Analyst', 'Data Analyst', 'Werkstudent Marketing']) {
   test(`rejects ${title}`, () => assert.equal(classifyRole(title, 'Python experience preferred'), null));
 }
-for (const description of ['Requires 5+ years of experience.', 'Minimum 6 years professional experience.', '10+ years of relevant experience required.', 'Mindestens 5 Jahre Berufserfahrung.', 'Fundierte mehrjährige Berufserfahrung erforderlich.', 'German C1 required.', 'Deutsch C2 erforderlich.', 'Verhandlungssicheres Deutsch.']) {
+for (const description of ['Requires 5+ years of experience.', '3+ years of experience with Python.', '1+ year of experience with Python.', '1-2 years of experience with Python.', 'At least one year of professional experience.', 'A year of industry experience is required.', 'Mindestens 1 Jahr Berufserfahrung.', 'Mindestens ein Jahr Erfahrung.', 'You have 2+ years of experience in an Engineering role.', 'At least 4 years of hands-on machine learning engineering experience.', '5+ years of professional software development experience.', 'Experience: ~3–5 years in offensive security.', 'Three years of industry experience.', 'Several years of experience in IT.', '5 plus years of experience.', 'Berufserfahrung von mindestens 3 Jahren.', 'Mindestens drei Jahre Erfahrung.', 'Du verfügst über mehrjährige Erfahrung, fundierte Kenntnisse.', 'Minimum 6 years professional experience.', '10+ years of relevant experience required.', 'Mindestens 5 Jahre Berufserfahrung.', 'Fundierte mehrjährige Berufserfahrung erforderlich.', 'German C1 required.', 'Deutsch C2 erforderlich.', 'Verhandlungssicheres Deutsch.']) {
   test(`excludes requirement: ${description}`, () => assert.equal(classifyRole('AI Engineer', description), null));
 }
 test('generic Python mention does not qualify', () => assert.equal(classifyRole('Software Engineer', 'Python is one of our many technologies.'), null));

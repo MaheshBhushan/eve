@@ -1,6 +1,6 @@
 {
   "_readme": [
-    "Manual profile targeting without Jev. A posting must pass the deterministic role classifier (src/roles.ts: AI/LLM, backend/platform, developer tools, industrial AI, ML systems; no senior titles, 5+ years or German C1) and one branch of anyOf.",
+    "Manual profile targeting without Jev. A posting must pass the deterministic role classifier (src/roles.ts: AI/LLM, backend/platform, developer tools, industrial AI, ML systems; no senior titles, 1+ years of required experience or German C1) and one branch of anyOf.",
     "Every title must contain a technical word (titleAny) and none of the non-engineering or freelance words in titleNone; freelance work is not allowed on a student permit.",
     "Branch 1, Germany: located in Germany and titled as a working student role, internship or thesis.",
     "Branch 2, anywhere else: the location must say worldwide, anywhere, global, Europe/EU/EMEA or just Remote, and must not name a country or a German place. A remote job pinned to Germany needs branch 1.",

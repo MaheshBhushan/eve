@@ -1,5 +1,5 @@
 /** Deterministic targeting; no network or model calls. Increment when rules change. */
-export const ROLE_FILTER_VERSION = 3;
+export const ROLE_FILTER_VERSION = 5;
 export type RoleFamily = 'ai_llm_application' | 'backend_platform' | 'developer_tools' | 'industrial_ai' | 'ml_systems';
 export interface RoleClassification {
   roleFamily: RoleFamily;
@@ -68,6 +68,19 @@ export function classifyRole(title: string, description: string | null): RoleCla
     secondaryRoleFamilies: candidates.slice(1).map(c => c.family) };
 }
 
+/**
+ * The profile is a master's student with one internship, so a firm requirement
+ * of this many years or more is out of reach.
+ */
+const MIN_EXPERIENCE_YEARS = 1;
+const YEAR_WORDS: Record<string, number> = {
+  one: 1, a: 1, an: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  ein: 1, einem: 1, zwei: 2, drei: 3, vier: 4, funf: 5, 'fünf': 5, sechs: 6, sieben: 7, acht: 8, neun: 9, zehn: 10,
+};
+function yearCount(token: string): number {
+  return YEAR_WORDS[token] ?? Number(token);
+}
+
 /** Existing seniority, experience and language exclusions, independent of title families. */
 export function passesRoleRules(title: string, description: string | null): boolean {
   const t = normalize(title), d = normalize(description ?? "");
@@ -75,14 +88,22 @@ export function passesRoleRules(title: string, description: string | null): bool
   // "Head (m/w/d) of Data") is the same leadership role; `normalize` turns the
   // decoration into plain tokens, so the pattern allows a few of them.
   if (/\b(senior|sr|staff|principal|lead|manager|director|architect|chief|vp)\b|\bhead\b(?:\s+[a-z0-9]+){0,4}\s+of\b/.test(t)) return false;
-  // Experience must describe the candidate, not the company's age or a benefit.
-  const raw = (description ?? '').replace(/<[^>]*>/g, ' ').toLowerCase();
-  const experience = /(?:\b(?:[5-9]|[1-9]\d)\s*(?:\+|[-–]\s*\d+)?\s*(?:years?|jahre[n]?)\s+(?:(?:of|professional|relevant|commercial|hands.on|industry)\s+){0,3}(?:experience|berufserfahrung|erfahrung)|mindestens\s+(?:[5-9]|[1-9]\d)\s+jahre)/g;
-  for (const match of raw.matchAll(experience)) {
-    const context = raw.slice(Math.max(0, match.index! - 35), match.index! + match[0].length + 40);
-    if (!/preferred|nice.to.have|optional|wunschenswert|idealerweise|not required/.test(context)) return false;
+  // Experience must describe the candidate, not the company's age or a benefit:
+  // a year count counts only when "experience" sits in the same clause.
+  const raw = (description ?? '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;|&#160;/g, ' ').toLowerCase();
+  const years = /(?:\b(\d{1,2}|one|an?|two|three|four|five|six|seven|eight|nine|ten|ein(?:em)?|zwei|drei|vier|f(?:u|ü)nf|sechs|sieben|acht|neun|zehn)|\b(several|many|multiple|extensive))\s*\+?\s*(?:plus\s+)?(?:(?:[-–—]|to|bis)\s*\d{1,2}\s*\+?\s*)?(?:years?|yrs?|jahre?n?)\b/g;
+  for (const match of raw.matchAll(years)) {
+    const count = match[2] ? MIN_EXPERIENCE_YEARS : yearCount(match[1]!);
+    if (count < MIN_EXPERIENCE_YEARS) continue;
+    const start = match.index!, end = start + match[0].length;
+    const before = raw.slice(Math.max(0, start - 40), start).split(/[.!?;•\n]/).pop()!;
+    const after = raw.slice(end, end + 80).split(/[.!?;•\n]/)[0]!;
+    // "up to 1 1/2 years", "within the last 3 years": a ceiling or a time window, not a minimum.
+    if (/(?:up to|bis zu|max(?:imal|imum)?|less than|under|weniger als|last|past|within|\d\s*\/)\s*$/.test(before)) continue;
+    if (!/experience|erfahrung|track record/.test(before + ' ' + after)) continue;
+    if (!/preferred|nice.to.have|optional|plus\b|bonus|w(?:u|ü)nschenswert|idealerweise|not required/.test(before + ' ' + after)) return false;
   }
-  if (/mehrjahrige berufserfahrung/.test(d) && /fundierte|zwingend|vorausgesetzt|erforderlich|erfahrene[rn]?/.test(d)) return false;
+  if (/(?:mehrjahrige|langjahrige) (?:berufs)?erfahrung/.test(d) && /fundierte|zwingend|vorausgesetzt|erforderlich|erfahrene[rn]?/.test(d)) return false;
   for (const sentence of (title + '. ' + (description ?? '')).split(/[.!;\n]/)) {
     const language = normalize(sentence);
     if (/(?:german|deutsch)(?: language)?(?: level|kenntnisse)?\s+(?:c1|c2)|(?:c1|c2)\s+(?:german|deutsch)|verhandlungssicher\w*\s+(?:deutsch|deutschkenntnisse)/.test(language)
