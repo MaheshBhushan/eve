@@ -20,7 +20,9 @@ function fixtureHtml(): string {
   <div><span data-at="job-item-location"><span class="res-8wkck8"><svg><path d="M1"></path></svg></span><span class="res-du9bhi">M&#252;nchen</span></span></div>
   <span data-at="job-item-timeago"><time class="">vor 2 Tagen</time></span>
 </div>
-<script>window.__PRELOADED_STATE__ = {"items":[{"id":14391264,"title":"Werkstudent Machine Learning","labels":[{"id":"new"}],"url":"/x","companyName":"Acme GmbH","datePosted":"2026-08-26T09:15:00+02:00","location":"N\u00fcrnberg"},{"id":99999999,"title":"Unrelated","datePosted":"2026-08-01T00:00:00+02:00"}]};</script>
+<script>window.__PRELOADED_STATE__ = window.__PRELOADED_STATE__ || {};
+window.__PRELOADED_STATE__["app-unifiedResultlist"] = {"theme":null,"searchResults":{"items":[{"harmonisedId":"x","id":14391264,"labels":[{"id":"new"}],"companyName":"Acme GmbH","datePosted":"2026-08-26T09:15:00+02:00","title":"Werkstudent Machine Learning"},{"id":99999999,"title":"Unrelated","datePosted":"2026-08-01T00:00:00+02:00"}]}};
+</script>
 </body></html>`;
 }
 
@@ -72,13 +74,19 @@ test("stepstone declares itself a partial source", () => {
   assert.equal(stepstone.complete, false);
 });
 
-test("extractPostedDates keys on the id/title pair and does not bleed across items", () => {
-  const html = `{"items":[{"id":1,"title":"A","labels":[{"id":77}],"datePosted":"2026-09-01T10:00:00Z"},{"id":2,"title":"B"},{"id":3,"title":"C","datePosted":"not a date"},{"id":4,"title":"D","datePosted":"2026-09-02T00:00:00+02:00"}]}`;
+test("extractPostedDates reads items regardless of key order and skips bad dates", () => {
+  const html = `<script>window.__PRELOADED_STATE__["app-unifiedResultlist"] = {"searchResults":{"items":[{"datePosted":"2026-09-01T10:00:00Z","labels":[{"id":77,"datePosted":"2020-01-01T00:00:00Z"}],"id":1},{"id":2,"title":"B"},{"id":3,"datePosted":"not a date"},{"title":"D","id":4,"datePosted":"2026-09-02T00:00:00+02:00"}]}};
+</script>`;
   const dates = extractPostedDates(html);
   assert.deepEqual([...dates.entries()], [
     ["1", "2026-09-01T10:00:00.000Z"],
     ["4", "2026-09-01T22:00:00.000Z"],
   ]);
+});
+
+test("extractPostedDates yields nothing for a missing or broken state blob", () => {
+  assert.equal(extractPostedDates("<html></html>").size, 0);
+  assert.equal(extractPostedDates('window.__PRELOADED_STATE__["app-unifiedResultlist"] = {"searchResults":</script>').size, 0);
 });
 
 test("absolute card links parse like relative ones", () => {

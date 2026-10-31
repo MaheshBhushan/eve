@@ -336,6 +336,22 @@ test("an incomplete source still reports new postings", async (t) => {
   assert.equal(report.opened, 1);
 });
 
+test("a windowed snapshot from a complete adapter neither closes nor trips the guard", async (t) => {
+  const db = freshDb(t);
+  const s = src(db);
+  const windowed = (snap: FetchedPosting[]) =>
+    fakeAdapter(snap, { fetch: async () => ({ postings: snap, etag: null, complete: false }) });
+  await pollSource(db, cfg(), s, windowed(board(4)));
+
+  // Everything aged out of the window: empty, but not a mass delisting.
+  const report = await pollSource(db, cfg(), reload(db, s), windowed([]));
+
+  assert.equal(report.skipped, false);
+  assert.equal(report.closed, 0);
+  assert.equal(listOpenPostings(db, s.id).length, 4);
+  assert.equal(reload(db, s).fail_count, 0);
+});
+
 /* --------------------------------------------------------------- cycle --- */
 
 test("a source at maxFailures is muted until its backoff, then probed again", async (t) => {
@@ -386,6 +402,34 @@ test("one throwing source does not stop the next one polling", async (t) => {
   assert.equal(reports.length, 2);
   assert.equal(reload(db, bad).fail_count, 1);
   assert.equal(listOpenPostings(db, good.id).length, 2, "the healthy board still polled");
+});
+
+test("a cycle polls hosts concurrently but one host's sources strictly in order", async (t) => {
+  const db = freshDb(t);
+  const sources = [src(db, "a1"), src(db, "a2"), src(db, "a3"), src(db, "b1")];
+  const inFlight = new Map<string, number>();
+  const peak = new Map<string, number>();
+  let overlapped = false;
+  const host = (ident: string) => ident[0]!;
+
+  const reports = await runCycle(db, cfg(), (s) =>
+    fakeAdapter(null, {
+      domain: host,
+      fetch: async () => {
+        const h = host(s.ident);
+        inFlight.set(h, (inFlight.get(h) ?? 0) + 1);
+        peak.set(h, Math.max(peak.get(h) ?? 0, inFlight.get(h)!));
+        if (inFlight.size === 2 && [...inFlight.values()].every((n) => n > 0)) overlapped = true;
+        await Promise.resolve(); // yield so other lanes can start their fetch
+        inFlight.set(h, inFlight.get(h)! - 1);
+        return { postings: board(1), etag: null };
+      },
+    }),
+  );
+
+  assert.deepEqual(reports.map((r) => r.source), sources.map((s) => s.label), "reports keep source order");
+  assert.equal(peak.get("a"), 1, "never two requests at once to one host");
+  assert.ok(overlapped, "different hosts overlap");
 });
 
 /* ------------------------------------------------------------ parseResult --- */

@@ -1,6 +1,6 @@
 import type { Adapter, FetchResult, ParsedRef } from "./index.ts";
 import { cleanString, httpUrl, isRecord, isoDate, stripHtml } from "./index.ts";
-import { fetchJson } from "../http.ts";
+import { HttpError, fetchJson } from "../http.ts";
 import type { FetchedPosting } from "../types.ts";
 
 /**
@@ -18,8 +18,8 @@ import type { FetchedPosting } from "../types.ts";
  * full walk, and the list moves fast — a measured 200-job window covered 4.2
  * hours, i.e. roughly 1,150 new jobs a day. A fixed head-only walk therefore
  * misses most arrivals between daily polls, and a fixed deep-only walk never
- * sees the head. So each poll does two bounded walks, resuming from an opaque
- * cursor this adapter owns:
+ * sees the head. So polls do two bounded walks, resuming from an opaque
+ * cursor this adapter owns (the head every poll, the background once a day):
  *
  *   1. a head walk from the newest job downwards, stopping once it reaches the
  *      watermark (the newest `pubDate` the previous head walk already covered).
@@ -57,12 +57,14 @@ import type { FetchedPosting } from "../types.ts";
 const API = "https://himalayas.app/jobs/api";
 /** Provider maximum. The API returns 400 above this. */
 const PAGE_SIZE = 20;
-/** Fresh budget: enough for a day of arrivals (~1,150 measured) with headroom. */
+/** Fresh budget: a day of arrivals (~1,150 measured) with headroom, for outages. */
 const MAX_HEAD_PAGES = 80;
 /** First run has no watermark; keep the initial head grab small. */
 const FIRST_HEAD_PAGES = 5;
 /** Background budget: 500 historical jobs a day, resumable. */
 const MAX_BG_PAGES = 25;
+/** The background walk runs once per this interval, however often the head is polled. */
+const BG_INTERVAL_MS = 24 * 60 * 60_000;
 
 const REF_RE = /^(?:himalayas)(?::all)?$/i;
 const URL_RE = /^(?:https?:\/\/)?(?:www\.)?himalayas\.app(?:\/.*)?$/i;
@@ -175,19 +177,25 @@ interface CursorState {
   wm: number | null;
   /** Provider cursor for the background walk; null starts a new one. */
   bg: string | null;
+  /** Epoch ms of the last background walk; null means one is due. */
+  bgAt: number | null;
 }
 
 function readState(cursor: string | null | undefined): CursorState {
-  if (!cursor) return { wm: null, bg: null };
+  if (!cursor) return { wm: null, bg: null, bgAt: null };
   try {
-    const parsed = JSON.parse(cursor) as { wm?: unknown; bg?: unknown };
+    const parsed: unknown = JSON.parse(cursor);
+    const wm = isRecord(parsed) ? parsed.wm : undefined;
+    const bg = isRecord(parsed) ? parsed.bg : undefined;
+    const bgAt = isRecord(parsed) ? parsed.bgAt : undefined;
     return {
-      wm: typeof parsed.wm === "number" && Number.isFinite(parsed.wm) ? parsed.wm : null,
-      bg: typeof parsed.bg === "string" && parsed.bg ? parsed.bg : null,
+      wm: typeof wm === "number" && Number.isFinite(wm) ? wm : null,
+      bg: typeof bg === "string" && bg ? bg : null,
+      bgAt: typeof bgAt === "number" && Number.isFinite(bgAt) ? bgAt : null,
     };
   } catch {
     // A corrupt cursor is unknown state, not a reason to fail the source.
-    return { wm: null, bg: null };
+    return { wm: null, bg: null, bgAt: null };
   }
 }
 
@@ -207,11 +215,14 @@ async function fetchJobs(
   const state = readState(cursor);
   const collected = new Map<string, FetchedPosting>();
   let newest = state.wm;
+  // Optional free key: its own 60/min, 10k/day allowance instead of the shared public one.
+  const key = process.env.HIMALAYAS_API_KEY?.trim();
 
   const page = async (params: URLSearchParams) => {
     const { body } = await fetchJson(`${API}?${params.toString()}`, {
       maxBytes: 5_000_000,
       allowHost: (host) => host === "himalayas.app" || host === "www.himalayas.app",
+      ...(key ? { headers: { authorization: `Bearer ${key}` } } : {}),
     });
     return body === null ? null : parseHimalayasPage(body);
   };
@@ -245,12 +256,23 @@ async function fetchJobs(
     if (!headCursor || reachedKnown) break;
   }
 
-  // 2. Background walk: resume where the last one stopped, or where this
-  //    poll's head walk stopped when there is no stored cursor.
-  let bg = state.bg ?? headCursor;
-  for (let i = 0; i < MAX_BG_PAGES && bg; i++) {
+  // 2. Background walk, at most once a day: resume where the last one
+  //    stopped, or where this poll's head walk stopped when there is no
+  //    stored cursor. Between walks the stored position is kept untouched.
+  const now = Date.now();
+  const bgDue = state.bgAt === null || now - state.bgAt >= BG_INTERVAL_MS;
+  let bg = bgDue ? state.bg ?? headCursor : state.bg;
+  for (let i = 0; bgDue && i < MAX_BG_PAGES && bg; i++) {
     const params = new URLSearchParams({ limit: String(PAGE_SIZE), cursor: bg });
-    const parsed = await page(params);
+    let parsed;
+    try {
+      parsed = await page(params);
+    } catch (e) {
+      // Backfill is optional; fresh head jobs must not be lost to its 429.
+      // Keep the position and try again at the next daily walk.
+      if (e instanceof HttpError && e.kind === "blocked") break;
+      throw e;
+    }
     if (!parsed || parsed.postings.length === 0) {
       bg = null;
       break;
@@ -263,15 +285,17 @@ async function fetchJobs(
   return {
     postings: [...collected.values()],
     etag: null,
-    cursor: JSON.stringify({ wm: newest, bg }),
+    cursor: JSON.stringify({ wm: newest, bg, bgAt: bgDue ? now : state.bgAt }),
   };
 }
 
 export const himalayas: Adapter = {
   kind: "himalayas",
   complete: false,
-  // The provider says the data is cached daily.
-  minPollIntervalMs: 24 * 60 * 60_000,
+  // The docs say the feed is cached daily, but the live head carried jobs
+  // minutes old (2026-10-31), so the head is polled often; the background
+  // walk keeps its daily budget.
+  minPollIntervalMs: 30 * 60_000,
   domain: () => "himalayas.app",
   parse,
   fetch: fetchJobs,

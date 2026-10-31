@@ -451,6 +451,38 @@ test("Himalayas: the first run caps the head grab and hands off to the backgroun
   );
 });
 
+test("Himalayas: frequent polls walk only the head; the background walk waits a day", async () => {
+  const bgAt = Date.now() - 60 * 60_000;
+  const cursor = JSON.stringify({ wm: 1790080189, bg: "bg-1", bgAt });
+  const requested: string[] = [];
+  await withFetch(
+    (url) => {
+      requested.push(url);
+      return Response.json({ jobs: [himalayasJob({ guid: "known", pubDate: 1790080188 })], nextCursor: "head-2" });
+    },
+    async () => {
+      const result = await himalayas.fetch("all", null, cursor);
+      assert.equal(requested.length, 1, "head page only");
+      assert.deepEqual(JSON.parse(result.cursor!), { wm: 1790080189, bg: "bg-1", bgAt }, "background position kept");
+    },
+  );
+});
+
+test("Himalayas: a 429 during the background walk keeps the head jobs and the position", async () => {
+  const cursor = JSON.stringify({ wm: 1790080189, bg: "bg-1" });
+  await withFetch(
+    (url) =>
+      new URL(url).searchParams.get("cursor") === "bg-1"
+        ? new Response("slow down", { status: 429 })
+        : Response.json({ jobs: [himalayasJob({ guid: "new", pubDate: 1790089999 }), himalayasJob({ guid: "old", pubDate: 1790080188 })], nextCursor: "head-2" }),
+    async () => {
+      const result = await himalayas.fetch("all", null, cursor);
+      assert.deepEqual(result.postings?.map((p) => p.externalId), ["new", "old"]);
+      assert.equal(JSON.parse(result.cursor!).bg, "bg-1");
+    },
+  );
+});
+
 /* ---------------------------------------------------------------- Arbeitnow --- */
 
 function arbeitnowPage(jobs: unknown[], next: string | null = null): Response {

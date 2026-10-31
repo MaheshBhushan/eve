@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { extractCards, parseCard, parseRelativeAge, linkedin } from "./sources/linkedin.ts";
+import { extractCards, parseCard, parseRelativeAge, linkedin, searchWindowSeconds } from "./sources/linkedin.ts";
 
 function fixtureHtml(): string {
   return `
@@ -83,4 +83,21 @@ test("linkedin.parse builds a canonical ident and label", () => {
 
 test("linkedin.complete is false", () => {
   assert.equal(linkedin.complete, false);
+});
+
+test("searchWindowSeconds covers the gap since the last fetch plus an hour, capped at the recent window", () => {
+  const prev = process.env.RADAR_RECENT_HOURS;
+  process.env.RADAR_RECENT_HOURS = "24";
+  try {
+    const ago = (s: number) => new Date(NOW - s * 1000).toISOString();
+    assert.equal(searchWindowSeconds(null, NOW), 86_400, "no cursor -> baseline over the recent window");
+    assert.equal(searchWindowSeconds("garbage", NOW), 86_400);
+    assert.equal(searchWindowSeconds(ago(-60), NOW), 86_400, "future cursor is not trusted");
+    assert.equal(searchWindowSeconds(ago(300), NOW), 300 + 3600);
+    assert.equal(searchWindowSeconds(ago(5 * 3600), NOW), 6 * 3600, "failed polls widen the next window");
+    assert.equal(searchWindowSeconds(ago(3 * 86_400), NOW), 86_400);
+  } finally {
+    if (prev === undefined) delete process.env.RADAR_RECENT_HOURS;
+    else process.env.RADAR_RECENT_HOURS = prev;
+  }
 });

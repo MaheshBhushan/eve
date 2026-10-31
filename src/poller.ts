@@ -97,6 +97,9 @@ const MIN_BOARD_FOR_GUARD = 4;
  */
 const DOMAIN_COOLDOWN_MS = 15 * 60_000;
 
+/** Hosts polled at once per cycle; each host's own sources stay sequential. */
+const LANE_CONCURRENCY = 8;
+
 /**
  * Classify a thrown fetch error as a domain-level block.
  *
@@ -306,9 +309,9 @@ export async function pollSource(
   const { present, vanished } = diffSnapshot(spec.targeting === "profile" ? stored : stored.filter(p => classifyRole(p.title, p.description)), filteredPostings);
   report.seen = present.length;
 
-  // Adapters that cannot see the whole board. See the guard below and the
-  // closure step for what changes.
-  const complete = adapter.complete !== false;
+  // Adapters that cannot see the whole board, and windowed snapshots from ones
+  // that can. See the guard below and the closure step for what changes.
+  const complete = adapter.complete !== false && fetched.complete !== false;
 
   // The guard is moot on a re-baseline cycle: it exists to stop a truncated
   // fetch from being read as a mass delisting, and a re-baseline cycle closes
@@ -487,16 +490,16 @@ export async function runCycle(
   /** Same injection point as `pollSource`; production uses the default. */
   resolve: (source: SourceRow) => Adapter = (s) => adapterFor(s.kind),
 ): Promise<PollReport[]> {
-  const reports: PollReport[] = [];
-
   // Once per cycle, outside the try/catch: a malformed filter file is a config
   // error for the whole run, and it should fail the process loudly rather than
   // be swallowed N times as N separate board failures.
   const filters = loadFilters(cfg.filtersPath);
+  const sources = listSources(db);
+  const reports: PollReport[] = new Array(sources.length);
 
-  for (const source of listSources(db)) {
+  const pollOne = async (source: SourceRow, index: number) => {
     try {
-      reports.push(await pollSource(db, cfg, source, resolve(source), filters));
+      reports[index] = await pollSource(db, cfg, source, resolve(source), filters);
     } catch (e) {
       // One board being down, renamed or serving garbage must not cost the
       // other boards their cycle -- they are independent, and the failure is
@@ -504,7 +507,7 @@ export async function runCycle(
       const count = markPollFailed(db, source.id);
       deferSource(db, source.id, utcAt(Date.now() + failureBackoffMs(count)));
       console.error(`[poll] ${source.label} failed (${count} in a row):`, e);
-      reports.push({
+      reports[index] = {
         source: source.label,
         notModified: false,
         skipped: false,
@@ -515,9 +518,37 @@ export async function runCycle(
         updated: 0,
         closed: 0,
         error: String(e),
-      });
+      };
     }
-  }
+  };
+
+  // Hosts are polled concurrently, sources on one host strictly in order.
+  // A cycle used to be the sum of every host's latency (3-7 minutes, so slow
+  // cycles skipped timer firings); now it is roughly the slowest host. Per-host
+  // request rate is unchanged, and a 429 still pauses the rest of its host
+  // because the cooldown is read before each of that host's later fetches.
+  // Everything in pollSource after the fetch is synchronous, so concurrent
+  // sources never interleave inside a write.
+  const lanes = new Map<string, Array<[SourceRow, number]>>();
+  sources.forEach((source, index) => {
+    let lane: string = source.kind;
+    try {
+      lane = resolve(source).domain?.(source.ident) ?? source.kind;
+    } catch {
+      // Unknown kind: pollOne records the failure in its own lane.
+    }
+    const queue = lanes.get(lane) ?? [];
+    queue.push([source, index]);
+    lanes.set(lane, queue);
+  });
+  // Longest lanes first: the cycle ends when the slowest host does, so it must
+  // not wait behind short ones for a free slot.
+  const queues = [...lanes.values()].sort((a, b) => b.length - a.length);
+  await Promise.all(Array.from({ length: Math.min(LANE_CONCURRENCY, queues.length) }, async () => {
+    for (let queue = queues.shift(); queue; queue = queues.shift()) {
+      for (const [source, index] of queue) await pollOne(source, index);
+    }
+  }));
 
   const scored = await scoreCycle(db, cfg);
   const stale = sweepStale(db, cfg.staleDays);

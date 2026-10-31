@@ -6,9 +6,9 @@ OnBootSec=2min
 # A 5-minute refresh. The search sources (LinkedIn, StepStone, XING) state
 # publish times to the hour or better and the `fresh_opening` ping exists to
 # beat the applicant queue, so the interval is the ceiling on how early that
-# ping can be. A full cycle over ~70 sources takes about two minutes, which
-# leaves headroom; if cycles start overrunning, systemd simply skips a firing
-# (see eve-poll.service).
+# ping can be. Hosts are polled concurrently, so a cycle lasts about as long as
+# its slowest host, which leaves headroom; if cycles start overrunning, systemd
+# simply skips a firing (see eve-poll.service).
 #
 # Cost stays bounded because the expensive part is scoring, not polling:
 # Greenhouse and Ashby honour If-None-Match, so an unchanged board costs one 304

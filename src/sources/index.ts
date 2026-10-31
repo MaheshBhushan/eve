@@ -20,6 +20,13 @@ export interface FetchResult {
    * interprets it.
    */
   cursor?: string | null;
+  /**
+   * `false` marks this one snapshot as a window rather than an inventory even
+   * though the adapter is otherwise complete: a recency-filtered search drops
+   * postings because they aged out, not because they closed. The poller then
+   * treats it exactly like an incomplete adapter's snapshot.
+   */
+  complete?: false;
 }
 
 export interface Adapter {

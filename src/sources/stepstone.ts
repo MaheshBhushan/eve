@@ -19,10 +19,11 @@
  * `data-at="job-item-company-name"` and `data-at="job-item-location"`.
  * `data-at="job-item-timeago"` is a relative string ("vor 6 Tagen"), never an
  * absolute date. The real publish time lives elsewhere on the same page: the
- * inline `window.__PRELOADED_STATE__` carries each result as
- * `{"id":<jobId>,"title":...,"datePosted":"2026-09-02T01:54:01+02:00",...}`.
- * `postedAt` is joined from there by job id and is null only when the state
- * blob is missing the id, so the freshness alert can work on this board.
+ * inline `window.__PRELOADED_STATE__["app-unifiedResultlist"]` JSON carries
+ * each result in `searchResults.items` as `{"id":<jobId>,...,"datePosted":
+ * "2026-10-29T07:56:07.523Z",...}`. `postedAt` is joined from there by job id
+ * and is null only when the state blob is missing the id, so the freshness
+ * alert can work on this board.
  * The page also carries an inline `data-atx-onpageview-payload` attribute
  * whose JSON gives `searchResultsTotalJobCount`; that number is used only as a
  * sanity check -- if it says results exist but no cards parsed, this throws
@@ -161,23 +162,42 @@ const CARD_HREF =
   // Cards switched to absolute hrefs in October 2026; accept both forms.
   /href="(?:https:\/\/www\.stepstone\.de)?(\/stellenangebote--[^"]+?-(\d+)-inline\.html)"[^>]*data-at="job-item-title"/g;
 
+const STATE_MARKER = 'window.__PRELOADED_STATE__["app-unifiedResultlist"] =';
+
 /**
- * jobId -> ISO publish time, read from the preloaded-state JSON that the page
- * ships alongside the cards. Items are flat objects whose `id` immediately
- * precedes `title`, and whose `datePosted` follows within the same object; the
- * regex anchors on that `"id":N,"title"` pair so a nested label id can't be
- * mistaken for a job id, and stops at the next item's id so one item's date
- * cannot leak onto its neighbour.
+ * jobId -> ISO publish time, read from the result-list state JSON that the
+ * page ships alongside the cards. The blob is parsed rather than pattern-
+ * matched: StepStone reorders item keys (October 2026 moved `id` away from
+ * `title`, which silently zeroed a key-order regex). A missing or unparseable
+ * blob yields an empty map, so postings fall back to an inexact first_seen.
  */
 export function extractPostedDates(html: string): Map<string, string> {
   const dates = new Map<string, string>();
-  const re = /"id":(\d+),"title":"(?:(?!"id":\d+,"title")[\s\S])*?"datePosted":"([^"]+)"/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(html))) {
-    const t = Date.parse(m[2]!);
-    if (!Number.isNaN(t)) dates.set(m[1]!, new Date(t).toISOString());
+  const start = html.indexOf(STATE_MARKER);
+  if (start < 0) return dates;
+  const end = html.indexOf("</script>", start);
+  const json = html.slice(start + STATE_MARKER.length, end < 0 ? undefined : end).trim().replace(/;$/, "");
+  let state: unknown;
+  try {
+    state = JSON.parse(json);
+  } catch {
+    return dates;
+  }
+  const results = field(state, "searchResults");
+  const items = field(results, "items");
+  if (!Array.isArray(items)) return dates;
+  for (const item of items) {
+    const id = field(item, "id");
+    const posted = field(item, "datePosted");
+    if ((typeof id !== "number" && typeof id !== "string") || typeof posted !== "string") continue;
+    const t = Date.parse(posted);
+    if (!Number.isNaN(t)) dates.set(String(id), new Date(t).toISOString());
   }
   return dates;
+}
+
+function field(value: unknown, key: string): unknown {
+  return value && typeof value === "object" && key in value ? (value as Record<string, unknown>)[key] : undefined;
 }
 
 /** Parse the fetched search page into postings, or throw on unexpected shape. */

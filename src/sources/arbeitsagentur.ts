@@ -38,6 +38,10 @@
  * rather than a company, not a completeness bug, and the poller's existing
  * mass-delisting guard (`acceptSnapshot`) is the backstop.
  *
+ * A `~days` recency window is the exception: postings leave it by ageing out,
+ * so a windowed snapshot is returned with `complete: false` and absence from
+ * it closes nothing (and cannot trip the guard).
+ *
  * THE CAP. MAX_RESULTS = 800, i.e. 8 requests of 100 at most per cycle.
  * Measured set sizes: `werkstudent@berlin+25` → 285, `werkstudent@münchen+25`
  * → 473, `praktikum@berlin+25` → 608, `werkstudent` nationwide → 4435,
@@ -401,7 +405,9 @@ async function fetchSearch(ident: string, _etag: string | null): Promise<FetchRe
 
   // Verified: this endpoint sends no ETag (and `cache-control: no-store`), so
   // there is nothing to round-trip. Inventing one would suppress real changes.
-  return { postings, etag: null };
+  // A `~days` window is complete for the window, but postings leave it by
+  // ageing out, so absence there is not a closure.
+  return s.sinceDays === null ? { postings, etag: null } : { postings, etag: null, complete: false };
 }
 
 export const arbeitsagentur: Adapter = {

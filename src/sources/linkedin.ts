@@ -10,10 +10,16 @@ import { recentPostingSql } from "../recent.ts";
  * `complete === false`, and the poller must never infer closure from absence.
  * See browser.ts's header for the full rationale -- it applies verbatim here.
  *
- * f_TPR=r604800 (last 7 days) + sortBy=DD (newest first) keep this adapter
- * useful for freshness alerts even though it can never be exhaustive. Page
- * size is 10; we fetch start=0,10,20,30 (4 pages max) and stop as soon as a
- * page comes back empty. Requests are spaced ~1s apart.
+ * Ranking: the guest endpoint ignores sortBy=DD (verified 2026-10-31: the
+ * same 24h query returns the identical card order under sortBy=DD and
+ * sortBy=R, mixing 1h- and 22h-old jobs on page 1). A wide f_TPR window
+ * paged four deep is therefore a random sample, and a fresh job only shows
+ * up once it happens to rank into it. Freshness comes from the window
+ * instead: after the first (baseline) fetch, the adapter keeps the time of
+ * its last successful fetch in `cursor` and asks only for jobs listed since
+ * then plus an hour of slack for indexing lag, paging until a short page.
+ * A failed poll leaves the cursor alone, so the next window widens to cover
+ * the gap. Requests are spaced ~1s apart.
  *
  * Publish time: the card's `<time datetime="YYYY-MM-DD">` is date-only, but
  * its text is a relative age ("3 hours ago", "23 minutes ago") with the
@@ -37,7 +43,11 @@ const SEARCH_URL =
   "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search";
 
 const PAGE_SIZE = 10;
-const MAX_PAGES = 4;
+/** Baseline (no cursor): the wide recent window, sampled four pages deep. */
+const BASELINE_PAGES = 4;
+/** Incremental windows are small; this only bounds a pathological query. */
+const MAX_PAGES = 10;
+const WINDOW_SLACK_S = 3600;
 const REQUEST_SPACING_MS = 1000;
 
 const USER_AGENT =
@@ -180,16 +190,31 @@ function remoteOnly(location: string): boolean {
   return /^worldwide$/i.test(location.trim());
 }
 
-async function fetchPage(query: string, location: string, start: number): Promise<string> {
+function recentWindowSeconds(): number {
+  recentPostingSql(); // Validate before constructing the upstream age filter.
+  return Math.round(Number(process.env.RADAR_RECENT_HOURS ?? 168) * 3600);
+}
+
+/**
+ * f_TPR window for this fetch: everything listed since the last successful
+ * fetch plus slack, never wider than the recent window. No usable cursor
+ * means a baseline fetch over the whole recent window.
+ */
+export function searchWindowSeconds(cursor: string | null | undefined, now = Date.now()): number {
+  const recent = recentWindowSeconds();
+  const last = cursor ? Date.parse(cursor) : NaN;
+  if (!Number.isFinite(last) || last > now) return recent;
+  return Math.min(recent, Math.ceil((now - last) / 1000) + WINDOW_SLACK_S);
+}
+
+async function fetchPage(query: string, location: string, windowS: number, start: number): Promise<string> {
   const url = new URL(SEARCH_URL);
   url.searchParams.set("keywords", query);
   if (location) url.searchParams.set("location", location);
-  recentPostingSql(); // Validate before constructing the upstream age filter.
-  url.searchParams.set("f_TPR", `r${Math.round(Number(process.env.RADAR_RECENT_HOURS ?? 168) * 3600)}`);
+  url.searchParams.set("f_TPR", `r${windowS}`);
   if (remoteOnly(location)) url.searchParams.set("f_WT", "2");
   url.searchParams.set("sortBy", "DD");
   url.searchParams.set("start", String(start));
-
   const res = await fetch(url, {
     headers: {
       "user-agent": USER_AGENT,
@@ -216,15 +241,19 @@ export const linkedin: Adapter & { readonly complete: false } = {
 
   parse,
 
-  async fetch(ident: string, _etag: string | null): Promise<FetchResult> {
+  async fetch(ident: string, _etag: string | null, cursor?: string | null): Promise<FetchResult> {
     const { query, location } = splitIdent(ident);
     const loc = location === ANY_LOCATION ? "" : location;
+    const startedAt = Date.now();
+    const windowS = searchWindowSeconds(cursor, startedAt);
+    const incremental = windowS < recentWindowSeconds();
+    const maxPages = incremental ? MAX_PAGES : BASELINE_PAGES;
 
     const postings: FetchedPosting[] = [];
-    for (let page = 0; page < MAX_PAGES; page++) {
+    for (let page = 0; page < maxPages; page++) {
       const start = page * PAGE_SIZE;
       if (page > 0) await sleep(REQUEST_SPACING_MS);
-      const html = await fetchPage(query, loc, start);
+      const html = await fetchPage(query, loc, windowS, start);
       const cards = extractCards(html);
 
       if (cards.length === 0) {
@@ -244,8 +273,10 @@ export const linkedin: Adapter & { readonly complete: false } = {
         const posting = parseCard(card);
         if (posting) postings.push(remoteOnly(loc) ? { ...posting, remote: true } : posting);
       }
+      // A short page is the last one; skip the request that would come back empty.
+      if (cards.length < PAGE_SIZE) break;
     }
 
-    return { postings, etag: null };
+    return { postings, etag: null, cursor: new Date(startedAt).toISOString() };
   },
 };
