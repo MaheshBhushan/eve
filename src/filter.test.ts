@@ -342,10 +342,11 @@ test("filterHash changes on any semantic change", () => {
 
 /* ------------------------------------------------------------ loadFilters --- */
 
-test("loadFilters(null) and a missing file both mean no filtering", (t) => {
+test("no configured path means no filtering; a configured path that is missing throws", (t) => {
   assert.deepEqual(loadFilters(null), {});
-  assert.deepEqual(loadFilters(join(tmpDir(t), "nope.json")), {});
   assert.deepEqual(specFor(loadFilters(null), "greenhouse", "acme"), {});
+  const missing = join(tmpDir(t), "nope.json");
+  assert.throws(() => loadFilters(missing), (e: Error) => e.message.includes(missing));
 });
 
 test("a malformed filter file throws and names the file", (t) => {

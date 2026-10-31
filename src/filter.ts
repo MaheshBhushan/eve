@@ -16,7 +16,7 @@ import type { FetchedPosting } from "./types.ts";
  * the re-baseline rule in poller.ts for the consequence.
  *
  * Optional JSON constraints supplement the mandatory five-family classifier
- * in roles.ts. Neither a missing file nor a source override disables targeting.
+ * in roles.ts. Neither an unconfigured file nor a source override disables targeting.
  */
 
 export interface FilterSpec {
@@ -274,10 +274,12 @@ function bad(file: string, problem: string): Error {
 /**
  * Read the filter config, or decide there isn't one.
  *
- * The two failure modes are deliberately not symmetric. No path configured, or a
- * path that does not exist, means "no additional constraints" -- a legitimate setup, and the
- * one every existing deployment is already in. A file that exists but does not
- * parse or does not validate *throws*, loudly, naming the file and the problem.
+ * No path configured means "no additional constraints". A configured path that
+ * cannot be read, missing included, *throws*: the drive holding this repo
+ * remounts under a new name (`New Volume` -> `New Volume1`), and a silently
+ * ignored filter once let ~95% off-profile postings reach the channel for days.
+ * A file that exists but does not parse or does not validate also throws,
+ * naming the file and the problem.
  *
  * Malformed optional constraints fail loudly rather than silently broadening
  * the feed beyond the configured age, company or location limits.
@@ -289,8 +291,7 @@ export function loadFilters(path: string | null): FilterConfig {
   try {
     raw = readFileSync(path, "utf8");
   } catch (e) {
-    if ((e as NodeJS.ErrnoException).code === "ENOENT") return {};
-    throw new Error(`cannot read filter config ${path}: ${String(e)}`);
+    throw new Error(`cannot read filter config ${path} (RADAR_FILTERS): ${String(e)}`);
   }
 
   let parsed: unknown;

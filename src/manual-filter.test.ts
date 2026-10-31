@@ -20,6 +20,12 @@ test("Germany admits only working student, internship and thesis roles", () => {
   assert.ok(!kept(job("Remote AI Engineer", "Germany (Remote)", true)));
 });
 
+test("the |de| country code does not admit places like Île-de-France or Rio de Janeiro", () => {
+  assert.ok(kept(job("Werkstudent KI", "Berlin, DE")));
+  assert.ok(!kept(job("AI Product Owner (M/F) - Internship - Paris", "Paris, Île-de-France, France")));
+  assert.ok(!kept(job("AI Engineering Intern", "Rio de Janeiro, Brazil")));
+});
+
 test("outside Germany admits only remote roles open from anywhere", () => {
   assert.ok(kept(job("AI Engineer", "Remote, Worldwide", true)));
   assert.ok(kept(job("LLM Engineer", "EMEA", true)));

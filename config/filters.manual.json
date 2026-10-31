@@ -28,6 +28,26 @@
           "masterand",
           "bachelorand"
         ],
+        "locationNone": [
+          "france",
+          "spain",
+          "espana",
+          "portugal",
+          "belgium",
+          "luxembourg",
+          "brazil",
+          "brasil",
+          "mexico",
+          "argentina",
+          "chile",
+          "colombia",
+          "peru",
+          "uruguay",
+          "bolivia",
+          "venezuela",
+          "ecuador",
+          "paraguay"
+        ],
         "locationAny": [
           "deutschland",
           "germany",
