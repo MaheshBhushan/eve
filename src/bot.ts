@@ -8,7 +8,7 @@ import {
   SlashCommandBuilder,
   type TextChannel,
 } from "discord.js";
-import { loadConfig, type Config } from "./config.ts";
+import { fitApiKey, loadConfig, usesJev, type Config } from "./config.ts";
 import { commandAccessFromEnv, commandRefusal } from "./access.ts";
 import {
   addSource,
@@ -325,7 +325,7 @@ async function onApplied(i: ChatInputCommandInteraction, db: DatabaseSync) {
 }
 
 async function onStats(i: ChatInputCommandInteraction, db: DatabaseSync, cfg: Config) {
-  if (cfg.fitProvider !== "typesafe") return i.editReply("Jev scoring is not enabled.");
+  if (!usesJev(cfg)) return i.editReply("Jev scoring is not enabled.");
   const context = await jevContext(cfg);
   if (!context) return i.editReply("Jev stats need a readable configured profile.");
   const period = (i.options.getString("period") ?? "24h") as StatsPeriod;
@@ -356,10 +356,10 @@ async function onFit(i: ChatInputCommandInteraction, db: DatabaseSync, cfg: Conf
   // scoreFit shells out to the claude CLI and can take up to its own 90s
   // timeout; the interaction was deferred on receipt, and a deferred reply is
   // good for 15 minutes, so this has ample room even on a slow model.
-  if (cfg.fitProvider === "typesafe") {
+  if (usesJev(cfg)) {
     const context = await jevContext(cfg);
     const source = getSourceById(db, posting.source_id);
-    const key = process.env.TYPESAFE_API_KEY;
+    const key = fitApiKey(cfg);
     if (!context || !source || !key) return i.editReply(`Couldn't score #${id} — try again later.`);
     ensureTelemetryStart(db);
     // Same accounted path as the poller, so manual calls appear in /stats.

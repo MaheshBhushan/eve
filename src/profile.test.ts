@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openDb, addSource, upsertPosting, getPosting, listUnscoredPostings, setJevFit, queueEvent, pendingEvents } from "./db.ts";
 import { applyFilter, filterHash } from "./filter.ts";
-import { jevContext, parseJev, scoreJev, isMatch } from "./jev.ts";
+import { jevContext, parseJev, scoreJev, isMatch, requestJev } from "./jev.ts";
 import { jobDescription, enrichDescription } from "./enrich.ts";
 import { parseRemotive } from "./sources/remotive.ts";
 import { drain } from "./delivery.ts";
@@ -74,6 +74,23 @@ test('Jev sends evidence and typed questions; API failures do not become rejecti
   assert.equal((await scoreJev(getPosting(db,id)!,context,'test-key',request))!.eligible,true);
   const failed = (async () => new Response('',{status:401})) as typeof fetch;
   assert.equal(await scoreJev(getPosting(db,id)!,context,'test-key',failed),null);
+});
+test('Gemini Decision gets the same questions as one input string and its usage is recorded', async t => {
+  const {db,id,cfg} = setup(t); const context = (await jevContext({...cfg,fitProvider:'decision',fitModel:'gemini-decision-1'}))!;
+  const request = (async (url, init) => {
+    assert.equal(url,'https://generativelanguage.googleapis.com/v1beta/decisions');
+    assert.equal(new Headers(init!.headers).get('x-goog-api-key'),'test-key');
+    const body = JSON.parse(String(init!.body));
+    assert.equal(body.model,'gemini-decision-1');assert.equal(body.state,undefined);
+    assert.equal(JSON.parse(body.input).job.title,fetched.title);
+    assert.equal(body.questions.relevance.type,'score');
+    const {model: _, ...answers} = response();
+    return Response.json({...answers,usage:{total_input_tokens:196,total_output_tokens:0}});
+  }) as typeof fetch;
+  const attempt = await requestJev(getPosting(db,id)!,context,'test-key',request);
+  assert.equal(attempt.result!.score,88);
+  assert.equal(attempt.returnedModel,'gemini-decision-1');
+  assert.deepEqual(attempt.usage,{inputTokens:196,outputTokens:0,status:'reported'});
 });
 test('description extraction accepts JobPosting evidence, not generic page text, and blocks foreign redirects', async () => {
   assert.equal(jobDescription('<script type="application/ld+json">{"@graph":[{"@type":"JobPosting","description":"<p>Python work</p>"}]}</script>'),'Python work');

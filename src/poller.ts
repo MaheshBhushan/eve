@@ -1,7 +1,7 @@
 import { recentPostingSql } from "./recent.ts";
 import { classifyRole } from "./roles.ts";
 import type { DatabaseSync } from "node:sqlite";
-import { loadConfig, type Config } from "./config.ts";
+import { fitApiKey, loadConfig, usesJev, type Config } from "./config.ts";
 import {
   closePosting,
   deferSource,
@@ -583,7 +583,7 @@ export async function runCycle(
 export async function scoreCycle(db: DatabaseSync, cfg: Config): Promise<number> {
   if (!cfg.profilePath) return 0;
 
-  if (cfg.fitProvider === "typesafe") return scoreProfileCycle(db, cfg);
+  if (usesJev(cfg)) return scoreProfileCycle(db, cfg);
   let scored = 0;
   for (const posting of listUnscoredPostings(db, cfg.fitBudget)) {
     const fit = await scoreFit(posting, cfg.profilePath, cfg.fitModel);
@@ -608,7 +608,7 @@ export async function scoreCycle(db: DatabaseSync, cfg: Config): Promise<number>
 /** Bounded workers use stored rows as the durable scoring backlog. */
 async function scoreProfileCycle(db: DatabaseSync, cfg: Config): Promise<number> {
   const context = await jevContext(cfg);
-  const key = process.env.TYPESAFE_API_KEY;
+  const key = fitApiKey(cfg);
   if (!context || !key) return 0;
   // Housekeeping is best-effort: a write-lock collision here must defer to the
   // next cycle, not fail the whole poll.

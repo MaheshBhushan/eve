@@ -1,6 +1,7 @@
 /** Single-channel deployment: one DISCORD_CHANNEL_ID for every watched source. */
 export interface Config {
-  fitProvider?: "claude" | "typesafe";
+  /** `typesafe` and `decision` share the typed Jev questions; only the endpoint differs. */
+  fitProvider?: "claude" | "typesafe" | "decision";
   fitConfidence?: number;
   matchesOnly?: boolean;
   fitConcurrency?: number;
@@ -97,6 +98,16 @@ export interface Config {
   statsTimezone: string;
 }
 
+/** The two providers that answer the typed Jev questions instead of a free-text prompt. */
+export function usesJev(cfg: Pick<Config, "fitProvider">): boolean {
+  return cfg.fitProvider === "typesafe" || cfg.fitProvider === "decision";
+}
+
+/** API key for the configured Jev provider; Gemini Decision keeps its own variable. */
+export function fitApiKey(cfg: Pick<Config, "fitProvider">): string | undefined {
+  return cfg.fitProvider === "decision" ? process.env.GEMINI_DECISION_API_KEY : process.env.TYPESAFE_API_KEY;
+}
+
 function req(name: string): string {
   const v = process.env[name];
   if (!v) throw new Error(`missing required env var ${name}`);
@@ -105,7 +116,8 @@ function req(name: string): string {
 
 export function loadConfig(): Config {
   const fitProvider = process.env.RADAR_FIT_PROVIDER ?? "claude";
-  if (fitProvider !== "claude" && fitProvider !== "typesafe") throw new Error("RADAR_FIT_PROVIDER must be claude or typesafe");
+  if (fitProvider !== "claude" && fitProvider !== "typesafe" && fitProvider !== "decision") throw new Error("RADAR_FIT_PROVIDER must be claude, typesafe or decision");
+  const jev = usesJev({ fitProvider });
   const fitConfidence = Number(process.env.RADAR_FIT_CONFIDENCE ?? 0.8);
   if (!Number.isFinite(fitConfidence) || fitConfidence < 0 || fitConfidence > 1) throw new Error("RADAR_FIT_CONFIDENCE must be between 0 and 1");
   const fitConcurrency = Number(process.env.RADAR_FIT_CONCURRENCY ?? 3);
@@ -116,10 +128,14 @@ export function loadConfig(): Config {
   // useful while the strict match gates are being evaluated on real data.
   const matchesOnly =
     process.env.RADAR_MATCHES_ONLY === undefined
-      ? fitProvider === "typesafe"
+      ? jev
       : process.env.RADAR_MATCHES_ONLY === "true";
-  if (matchesOnly && fitProvider !== "typesafe") throw new Error("Matches-only mode requires typesafe scoring with confidence");
-  if (fitProvider === "typesafe" && (!process.env.TYPESAFE_API_KEY || !process.env.RADAR_PROFILE)) throw new Error("TypeSafe scoring requires TYPESAFE_API_KEY and RADAR_PROFILE");
+  if (matchesOnly && !jev) throw new Error("Matches-only mode requires typesafe or decision scoring with confidence");
+  if (jev && (!fitApiKey({ fitProvider }) || !process.env.RADAR_PROFILE)) {
+    throw new Error(fitProvider === "decision"
+      ? "Decision scoring requires GEMINI_DECISION_API_KEY and RADAR_PROFILE"
+      : "TypeSafe scoring requires TYPESAFE_API_KEY and RADAR_PROFILE");
+  }
   const statsTimezone = process.env.RADAR_STATS_TIMEZONE ?? "Europe/Berlin";
   try {
     new Intl.DateTimeFormat("en-US", { timeZone: statsTimezone });
@@ -135,7 +151,9 @@ export function loadConfig(): Config {
     pingTarget: process.env.RADAR_PING ? `<@${process.env.RADAR_PING}>` : "@here",
 
     profilePath: process.env.RADAR_PROFILE ?? null,
-    fitModel: fitProvider === "typesafe" ? (process.env.RADAR_JEV_MODEL ?? "jev-1.13.0") : (process.env.RADAR_FIT_MODEL ?? "sonnet"),
+    fitModel: fitProvider === "decision" ? (process.env.RADAR_DECISION_MODEL ?? "gemini-decision-1")
+      : fitProvider === "typesafe" ? (process.env.RADAR_JEV_MODEL ?? "jev-1.13.0")
+      : (process.env.RADAR_FIT_MODEL ?? "sonnet"),
     fitThreshold: Number(process.env.RADAR_FIT_THRESHOLD ?? 75),
     freshHours: Number(process.env.RADAR_FRESH_HOURS ?? 48),
     fitBudget: Number(process.env.RADAR_FIT_BUDGET ?? 25),

@@ -209,8 +209,10 @@ export function readUsage(raw: unknown): JevUsage {
   if (usage === undefined || usage === null) {
     return { inputTokens: null, outputTokens: null, status: "missing" };
   }
-  const input = (usage as { input_tokens?: unknown }).input_tokens;
-  const output = (usage as { output_tokens?: unknown }).output_tokens;
+  // TypeSafe reports input_tokens/output_tokens; Gemini Decisions reports total_input_tokens/total_output_tokens.
+  const u = usage as { input_tokens?: unknown; output_tokens?: unknown; total_input_tokens?: unknown; total_output_tokens?: unknown };
+  const input = u.input_tokens ?? u.total_input_tokens;
+  const output = u.output_tokens ?? u.total_output_tokens;
   const ok = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v >= 0;
   if (!ok(input) || !ok(output)) {
     return { inputTokens: null, outputTokens: null, status: "invalid" };
@@ -235,11 +237,24 @@ export interface JevRequest {
   questionsChars: number;
 }
 
-/** The exact bytes a request will carry, so telemetry can size it before dispatch. */
+/** Gemini Decision models answer the same questions on Google's Decisions API. */
+export const DECISIONS_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/decisions";
+const TYPESAFE_ENDPOINT = "https://api.typesafe.ai/v1/systemone";
+export function isDecisionModel(model: string): boolean {
+  return model.startsWith("gemini-decision");
+}
+
+/**
+ * The exact bytes a request will carry, so telemetry can size it before dispatch.
+ * The Decisions API takes the state as one `input` string; the question shapes
+ * and the answers are the same as TypeSafe's, so parseJev reads both.
+ */
 export function buildJevRequest(posting: PostingRow, context: JevContext): JevRequest {
   const state = { candidate: context.profile, preferred_role_families: roleLabels,
     job: { title: posting.title, company: posting.company, location: posting.location, remote: posting.remote, description: posting.description } };
-  const body = JSON.stringify({ model: context.model, state, questions });
+  const body = isDecisionModel(context.model)
+    ? JSON.stringify({ model: context.model, input: JSON.stringify(state), questions })
+    : JSON.stringify({ model: context.model, state, questions });
   return {
     body,
     requestBytes: Buffer.byteLength(body, "utf8"),
@@ -249,7 +264,7 @@ export function buildJevRequest(posting: PostingRow, context: JevContext): JevRe
   };
 }
 
-/** The one place a TypeSafe request is dispatched. Never throws. */
+/** The one place a TypeSafe or Gemini Decision request is dispatched. Never throws. */
 export async function requestJev(
   posting: PostingRow,
   context: JevContext,
@@ -268,8 +283,12 @@ export async function requestJev(
   };
 
   try {
-    const response = await request("https://api.typesafe.ai/v1/systemone", {
-      method: "POST", headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
+    const decision = isDecisionModel(context.model);
+    const response = await request(decision ? DECISIONS_ENDPOINT : TYPESAFE_ENDPOINT, {
+      method: "POST",
+      headers: decision
+        ? { "x-goog-api-key": apiKey, "content-type": "application/json" }
+        : { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
       body: prepared.body, signal: AbortSignal.timeout(30_000),
     });
     const retry = retryAfterMs(response);
@@ -291,7 +310,8 @@ export async function requestJev(
     }
     const usage = readUsage(raw);
     const { result, returnedModel } = parseJevFull(raw);
-    return { ...base, returnedModel, usage, result, httpStatus: response.status,
+    // Decisions responses carry no model field; record the one that was asked for.
+    return { ...base, returnedModel: returnedModel ?? (decision ? context.model : null), usage, result, httpStatus: response.status,
       outcome: result ? "success" : "invalid_response", errorCode: result ? null : "invalid_answers",
       durationMs: Date.now() - started };
   } catch (e) {
