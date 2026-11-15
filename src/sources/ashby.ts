@@ -1,6 +1,7 @@
 import type { Adapter, FetchResult, ParsedRef } from "./index.ts";
 import { getJson, stripHtml } from "./index.ts";
 import type { FetchedPosting } from "../types.ts";
+import { enforceContract } from "../contracts.ts";
 
 /** Recognises `ashby:name`, `jobs.ashbyhq.com/name`. */
 const PREFIX_RE = /^ashby:([a-z0-9][a-z0-9-]*)$/i;
@@ -74,6 +75,7 @@ async function fetchBoard(ident: string, etag: string | null): Promise<FetchResu
     throw new Error(`ashby board ${ident} did not return a jobs array`);
   }
 
+  enforceContract("ashby", ident, jobs);
   const postings = (jobs as AshbyJob[])
     // isListed:false means the board itself is hiding the posting -- as
     // good as closed, so it must not be surfaced as an open snapshot entry.
