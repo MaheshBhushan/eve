@@ -1,5 +1,6 @@
 import { EmbedBuilder } from "discord.js";
 import type { EventRow, PostingRow, SourceRow } from "./types.ts";
+import { postingTier, TIER_LABEL, TIER_RANK } from "./tier.ts";
 
 export const COLOR = {
   open: 0x2da44e,
@@ -99,6 +100,18 @@ export function postingEmbed(source: SourceRow, p: PostingRow): EmbedBuilder {
         inline: true,
       },
     );
+
+  // Knockout tier from the stored description. Shown on every card that has a
+  // description, because a high fit score on a Tier C posting still ends in a
+  // screen-out.
+  if (p.description) {
+    const t = postingTier(p);
+    e.addFields({
+      name: TIER_LABEL[t.tier],
+      value: trunc(t.reasons.join("\n") || "No German or experience knockout found.", 1024),
+      inline: false,
+    });
+  }
 
   if (p.fit_score != null) {
     e.addFields({
@@ -225,6 +238,7 @@ export interface DigestRow {
 function digestLine(row: DigestRow): string {
   const { posting } = row;
   const fit = posting.fit_score != null ? `**${posting.fit_score}**` : "—";
+  const tier = posting.description ? `${postingTier(posting).tier} · ` : "";
   const title = trunc(posting.title, 60);
   const where = posting.location
     ? ` · ${trunc(posting.location, 28)}`
@@ -232,7 +246,7 @@ function digestLine(row: DigestRow): string {
       ? " · remote"
       : "";
   return (
-    `${fit} · [${title}](${posting.url}) — ${trunc(posting.company, 32)}${where}` +
+    `${tier}${fit} · [${title}](${posting.url}) — ${trunc(posting.company, 32)}${where}` +
     ` · ${age(posting.posted_at)} · \`#${posting.id}\``
   );
 }
@@ -243,7 +257,12 @@ function digestLine(row: DigestRow): string {
  * postings sort last rather than as a zero, since "unscored" isn't "bad fit".
  */
 export function digestEmbed(rows: DigestRow[]): EmbedBuilder {
+  // Tier first (A before B before C), then fit score within a tier. A Tier C
+  // posting at fit 90 is worth less than a Tier A posting at fit 70.
+  const rank = (r: DigestRow) => (r.posting.description ? TIER_RANK[postingTier(r.posting).tier] : 1);
   const sorted = [...rows].sort((a, b) => {
+    const byTier = rank(a) - rank(b);
+    if (byTier !== 0) return byTier;
     const as = a.posting.fit_score;
     const bs = b.posting.fit_score;
     if (as == null && bs == null) return 0;
